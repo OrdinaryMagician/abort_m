@@ -1,0 +1,31 @@
+Class AbsurdSphere : Inventory
+{
+	Default
+	{
+		Tag "$T_BAKABALL";
+		Inventory.PickupSound "pat/pop";
+		Inventory.PickupMessage "$I_BAKABALL";
+		Inventory.MaxAmount 1;
+		Scale 0.65;
+		FloatBobStrength 0.25;
+		+INVENTORY.ALWAYSPICKUP;
+		+INVENTORY.BIGPOWERUP;
+		+COUNTITEM;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+INTERPOLATEANGLES;
+		+FLOATBOB;
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !InStateSequence(CurState,FindState("Spawn")) ) return;
+		roll = sin((FloatBobPhase+level.maptime)*(180./32.)*0.5)*30.;
+	}
+	States
+	{
+	Spawn:
+		ABSR A -1 Bright;
+		Stop;
+	}
+}

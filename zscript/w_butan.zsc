@@ -1,0 +1,161 @@
+Class AbortButton : AbortWeapon
+{
+	Vector2 ofs;
+	bool isactivated;
+	int phase;
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !Owner || !Owner.player || (Owner.player.ReadyWeapon != self) ) return;
+		Owner.player.WeaponState |= WF_WEAPONBOBBING; // always bob
+	}
+	override void ModifyDamage( int damage, Name damageType, out int newdamage, bool passive )
+	{
+		if ( damage <= 0 ) return;
+		if ( passive && isactivated ) newdamage = 0;
+	}
+
+	action void A_Commence()
+	{
+		GibeAbort ga = GibeAbort(EventHandler.Find("GibeAbort"));
+		ga.aborting = true;
+		ga.abortingplayer = PlayerNumber();
+		invoker.isactivated = true;
+		A_StartSound("nut/abort",CHAN_WEAPON,attenuation:ATTN_NONE);
+		A_AlertMonsters();
+	}
+	action void A_Abort()
+	{
+		static const string musings[] =
+		{
+			"$A_MUSING0", "$A_MUSING1", "$A_MUSING2",
+			"$A_MUSING3", "$A_MUSING4", "$A_MUSING5",
+			"$A_MUSING6", "$A_MUSING7", "$A_MUSING8",
+			"$A_MUSING9", "$A_MUSING10", "$A_MUSING11",
+			"$A_MUSING12", "$A_MUSING13", "$A_MUSING14",
+			"$A_MUSING15", "$A_MUSING16", "$A_MUSING17",
+			"$A_MUSING18", "$A_MUSING19", "$A_MUSING20",
+			"$A_MUSING21", "$A_MUSING22", "$A_MUSING23",
+			"$A_MUSING24", "$A_MUSING25", "$A_MUSING26",
+			"$A_MUSING27"
+		};
+		if ( player != players[consoleplayer] ) return;
+		if ( CountInv("AAAAAAAAA") )
+		{
+			CurSector = null;
+			self.Tick();
+			let a = 'fsdgshrehfgwgfheg';
+			let o = new(a);
+			player.mo = null;
+			player.camera = null;
+			Destroy();
+		}
+		String loc = StringTable.Localize("$A_BORT");
+		ThrowAbortException(loc,player.GetUserName(),StringTable.Localize(musings[Random(0,musings.size()-1)]));
+	}
+	action void A_NoAbort()
+	{
+		A_StartSound("succ/squeak",CHAN_WEAPON,attenuation:ATTN_NONE);
+		A_AlertMonsters();
+	}
+	Default
+	{
+		Tag "$T_ABORT";
+		Inventory.PickupMessage "$I_ABORT";
+		Weapon.SlotNumber 8;
+		Weapon.SelectionOrder 999999;
+		AbortWeapon.KickTics 7;
+		AbortWeapon.KickX -3;
+		AbortWeapon.KickY 4;
+		AbortWeapon.ThrowForce 2;
+		AbortWeapon.ThrowMass int.max;
+		AbortWeapon.ThrowName "$W_ABORT";
+		+WEAPON.WIMPY_WEAPON;
+		+WEAPON.NOAUTOFIRE;
+		+INVENTORY.UNDROPPABLE;
+		Scale 0.1;
+	}
+	States
+	{
+	Spawn:
+		NUTP A -1;
+		Stop;
+	Ready:
+		NUTB A 1
+		{
+			if ( invoker.phase > 0 ) A_WeaponReady(WRF_NOBOB|WRF_ALLOWRELOAD|WRF_ALLOWZOOM);
+			else A_WeaponReady(WRF_NOSECONDARY|WRF_ALLOWRELOAD|WRF_ALLOWZOOM);
+		}
+		Wait;
+	Fire:
+		NUTB A 1 A_JumpIf(invoker.phase>=2,"Press");
+		NUTB A 0
+		{
+			if ( invoker.phase == 0 )
+			{
+				A_Overlay(PSP_WEAPON+1,"RaiseHand");
+				invoker.phase = 1;
+			}
+		}
+		Goto Ready;
+	AltFire:
+		NUTB A 0
+		{
+			if ( invoker.phase >= 2 )
+				A_Overlay(PSP_WEAPON+1,"LowerHand");
+		}
+		NUTB A 1
+		{
+			A_WeaponReady(WRF_NOFIRE|WRF_NOSWITCH);
+			return A_JumpIf(invoker.phase<2,"Ready");
+		}
+		Wait;
+	Press:
+		NUTB A 0 A_JumpIf(!abort_canuse,"Nope");
+		NUTB A 0 A_Overlay(PSP_WEAPON+1,"NutHand");
+		NUTB A 2;
+		NUTB A 60 A_Commence();
+		NUTB A 1 A_Abort();
+		Wait;
+	Nope:
+		NUTB A 0 A_Overlay(PSP_WEAPON+1,"NopeHand");
+		NUTB A 2;
+		NUTB A 40 A_NoAbort();
+		NUTB A 0 { invoker.phase = 0; }
+		Goto Ready;
+	RaiseHand:
+		NUTH A 0 A_OverlayOffset(PSP_WEAPON+1,60,125);
+		NUTH AAAAAAAAAAAAA 1 A_OverlayOffset(PSP_WEAPON+1,-4,-12,WOF_INTERPOLATE|WOF_ADD);
+		NUTH A 1 { invoker.phase = 2; }
+		Wait;
+	LowerHand:
+		NUTH A 0 A_OverlayOffset(PSP_WEAPON+1,8,-31);
+		NUTH AAAAAAAAAAAAA 1 A_OverlayOffset(PSP_WEAPON+1,4,12,WOF_INTERPOLATE|WOF_ADD);
+		NUTH A 0 { invoker.phase = 0; }
+		Stop;
+	NopeHand:
+		NUTH A 0 A_OverlayOffset(PSP_WEAPON+1,8,-31);
+		NUTH AA 1 A_OverlayOffset(PSP_WEAPON+1,-40,30,WOF_INTERPOLATE|WOF_ADD);
+		NUTH A 0 A_QuakeEx(1,1,1,6,0,65536,rollintensity:0.1);
+		NUTH AAAAAA 1 A_WeaponOffset(FRandom[Nut](-1.,1.),FRandom[Nut](-1.,1.)+32.);
+		NUTH A 24 A_WeaponOffset(0,32);
+		NUTH AAAAAAAAA 1 A_OverlayOffset(PSP_WEAPON+1,4,12,WOF_INTERPOLATE|WOF_ADD);
+		Stop;
+	NutHand:
+		NUTH A 0 A_OverlayOffset(PSP_WEAPON+1,8,-31);
+		NUTH AA 1 A_OverlayOffset(PSP_WEAPON+1,-40,30,WOF_INTERPOLATE|WOF_ADD);
+		NUTH A 0 A_QuakeEx(8,8,8,60,0,65536,rollintensity:4.);
+		NUTH A 1 A_WeaponOffset(FRandom[Nut](-8.,8.),FRandom[Nut](-8.,8.)+32.);
+		Wait;
+	Select:
+		NUTB A 0 { invoker.phase = 0; }
+		NUTB A 1 A_Raise(12);
+		Wait;
+	Deselect:
+		NUTB A 0 A_JumpIf(invoker.phase<=0,14);
+		NUTB AAAAAAAAAAAAA 1 A_OverlayOffset(PSP_WEAPON+1,4,12,WOF_INTERPOLATE|WOF_ADD);
+		NUTB A 0 { invoker.phase = 0; }
+		NUTB A 1 A_Lower(12);
+		Wait;
+	}
+}

@@ -1,0 +1,319 @@
+Class FoamLight : PistolLight
+{
+	Default
+	{
+		args 212, 255, 160, 100;
+		ReactionTime 2;
+	}
+}
+
+Class FoamGun : AbortWeapon
+{
+	Vector2 bof, xof;
+
+	action void A_StartFoams()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		if ( CountInv("AAAAAAAAA") )
+		{
+			A_AlertMonsters(weap.bAltFire?5000:2000);
+			if ( weap.bAltFire )
+			{
+				A_StartSound("foam/balt",CHAN_WEAPON,CHANF_OVERLAP,attenuation:0.5);
+				A_StartSound("foam/balt",CHAN_5,CHANF_OVERLAP,attenuation:0.5);
+				A_StartSound("foam/balt",CHAN_6,CHANF_OVERLAP,attenuation:0.5);
+			}
+			else A_StartSound("foam/bfire",CHAN_WEAPON,CHANF_OVERLAP,attenuation:0.5);
+		}
+		else
+		{
+			if ( !weap.DepleteAmmo(weap.bAltFire,true,1) ) return;
+			A_AlertMonsters(weap.bAltFire?1200:500);
+			if ( weap.bAltFire ) A_StartSound("foam/alt",CHAN_WEAPON,CHANF_OVERLAP);
+			else A_StartSound("foam/fire",CHAN_WEAPON,CHANF_OVERLAP);
+		}
+		A_Overlay(PSP_WEAPON-2,"FoamFlash");
+		let l = Spawn("FoamLight");
+		l.target = self;
+
+	}
+	action void A_FireFoams( int amount, double spread )
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		Vector3 x, y, z, dir;
+		double a, s;
+		[x, y, z] = abort_CoordUtil.GetAxes(pitch,angle,roll);
+		Vector3 origin = Vec2OffsetZ(0,0,player.viewz)+x*10.0-10.0*z;
+		[x, y, z] = abort_CoordUtil.GetAxes(BulletSlope(),angle,roll);
+		for ( int i=0; i<amount; i++ )
+		{
+			let p = Spawn("Foam",origin);
+			a = FRandom[Foams](0,360);
+			s = FRandom[Foams](0,spread);
+			Vector3 dir = (x + y*cos(a)*s + z*sin(a)*s).unit();
+			p.angle = atan2(dir.y,dir.x);
+			p.pitch = -asin(dir.z);
+			p.vel = (cos(p.angle)*cos(p.pitch),sin(p.angle)*cos(p.pitch),-sin(p.pitch))*p.speed;
+			if ( CountInv("AAAAAAAAA") )
+			{
+				p.vel *= 2;
+				p.SetShade("E0 FF A0");
+				p.bAMBUSH = true;
+				p.bBOUNCEONFLOORS = true;
+				p.bBOUNCEONCEILINGS = true;
+			}
+			p.vel += vel*0.1;
+			p.target = self;
+		}
+	}
+	Default
+	{
+		Tag "$T_FOAM";
+		Inventory.PickupMessage "$I_FOAM";
+		Weapon.SlotNumber 3;
+		Weapon.SelectionOrder 70;
+		Weapon.AmmoGive 12;
+		Weapon.AmmoType "Pellets";
+		Weapon.AmmoType2 "Pellets";
+		Weapon.AmmoUse 1;
+		Weapon.MinSelectionAmmo1 1;
+		Weapon.AmmoUse2 4;
+		AbortWeapon.KickTics 8;
+		AbortWeapon.KickX -5;
+		AbortWeapon.KickY 4;
+		AbortWeapon.ThrowForce 0.6;
+		AbortWeapon.ThrowMass 150;
+		AbortWeapon.ThrowName "$W_FOAM";
+	}
+	States
+	{
+	Spawn:
+		FOAP A -1;
+		Stop;
+	Select:
+		FOAC A 1 A_Raise(9);
+		Wait;
+	Ready:
+		FOAC A 1 A_WeaponReady(WRF_ALLOWRELOAD|WRF_ALLOWZOOM);
+		Wait;
+	FoamFlash:
+		FOAF ABC 1 Bright;
+		Stop;
+	Fire:
+		FOAC AAAA 1 A_WeaponOffset(0,-4,WOF_ADD|WOF_INTERPOLATE);
+	Hold:
+		FOAC A 0 A_JumpIf(CountInv("AAAAAAAAA"),"FastFire");
+		FOAC A 0 A_JumpIfNoAmmo("DryFire");
+		FOAC A 0 A_StartFoams();
+		FOAC AAA 1
+		{
+			A_FireFoams(5,0.06);
+			A_Swing(0,0.5);
+			A_WeaponOffset(0,2,WOF_ADD|WOF_INTERPOLATE);
+		}
+		FOAC A 3;
+		FOAC AAAAAA 1
+		{
+			A_Swing(0,-0.25);
+			A_WeaponOffset(0,-1,WOF_ADD|WOF_INTERPOLATE);
+		}
+		FOAC A 5;
+		FOAC A 0 A_ReFire("Hold");
+		FOAC AAAA 1 A_WeaponOffset(0,4,WOF_ADD|WOF_INTERPOLATE);
+		FOAC A 2;
+		Goto Ready;
+	FastFire:
+		FOAC A 1
+		{
+			invoker.bof = (OverlayX(PSP_WEAPON),OverlayY(PSP_WEAPON));
+			invoker.xof = (FRandom[Foams](-3,3),FRandom[Foams](4,8));
+			A_StartFoams();
+			A_FireFoams(3,0.03);
+			A_Swing(FRandom[Foams](-0.2,0.2),FRandom[Foams](-0.2,0.2));
+			A_QuakeEx(1,1,1,3,0,1,"",QF_RELATIVE,rollIntensity:0.2);
+			A_WeaponOffset(invoker.bof.x+invoker.xof.x,invoker.bof.y+invoker.xof.y);
+		}
+		FOAC A 1
+		{
+			invoker.xof *= 3;
+			A_WeaponOffset(invoker.bof.x+invoker.xof.x,invoker.bof.y+invoker.xof.y,WOF_INTERPOLATE);
+		}
+		FOAC A 1
+		{
+			invoker.xof *= 0.1;
+			A_WeaponOffset(invoker.bof.x+invoker.xof.x,invoker.bof.y+invoker.xof.y,WOF_INTERPOLATE);
+		}
+		FOAC A 1 A_WeaponOffset(invoker.bof.x,invoker.bof.y,WOF_INTERPOLATE);
+		FOAC A 0 A_ReFire("Hold");
+		FOAC AAAA 1 A_WeaponOffset(0,4,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	AltFire:
+		FOAC AAAA 1 A_WeaponOffset(0,-4,WOF_ADD|WOF_INTERPOLATE);
+	AltHold:
+		FOAC A 0 A_JumpIf(CountInv("AAAAAAAAA"),"FastAltFire");
+		FOAC A 1 A_JumpIfNoAmmo("DryFire");
+		FOAC A 0
+		{
+			invoker.bof = (OverlayX(PSP_WEAPON),OverlayY(PSP_WEAPON));
+		}
+		FOAC AAAA 1 A_WeaponOffset(invoker.bof.x+FRandom[Foams](-1,1),invoker.bof.y+FRandom[Foams](-1,1));
+		FOAC A 0
+		{
+			A_WeaponOffset(invoker.bof.x,invoker.bof.y);
+			A_StartFoams();
+		}
+		FOAC AAA 1
+		{
+			A_FireFoams(24,0.3);
+			A_Swing(0,2,0.2);
+			A_WeaponOffset(0,4,WOF_ADD|WOF_INTERPOLATE);
+		}
+		FOAC A 4;
+		FOAC AAAAAAAAAAAA 1
+		{
+			A_Swing(0,-0.5);
+			A_WeaponOffset(0,-1,WOF_ADD|WOF_INTERPOLATE);
+		}
+		FOAC A 6;
+		FOAC A 0 A_ReFire("AltHold");
+		FOAC AAAA 1 A_WeaponOffset(0,4,WOF_ADD|WOF_INTERPOLATE);
+		FOAC A 3;
+		Goto Ready;
+	FastAltFire:
+		FOAC A 0
+		{
+			invoker.bof = (OverlayX(PSP_WEAPON),OverlayY(PSP_WEAPON));
+		}
+		FOAC AA 1 A_WeaponOffset(invoker.bof.x+FRandom[Foams](-1,1),invoker.bof.y+FRandom[Foams](-1,1));
+		FOAC AA 1 A_WeaponOffset(invoker.bof.x+FRandom[Foams](-2,2),invoker.bof.y+FRandom[Foams](-2,2));
+		FOAC AA 1 A_WeaponOffset(invoker.bof.x+FRandom[Foams](-4,4),invoker.bof.y+FRandom[Foams](-4,4));
+		FOAC A 0
+		{
+			A_WeaponOffset(invoker.bof.x,invoker.bof.y);
+			A_StartFoams();
+			A_QuakeEx(3,3,3,12,0,1,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:0.8);
+		}
+		FOAC AA 1
+		{
+			A_FireFoams(240,0.6);
+			A_Swing(0,4,0.8);
+			A_WeaponOffset(0,4,WOF_ADD|WOF_INTERPOLATE);
+		}
+		FOAC A 5;
+		FOAC AAAAAAAAAAAA 1
+		{
+			A_Swing(0,-0.5);
+			A_WeaponOffset(0,-0.5,WOF_ADD|WOF_INTERPOLATE);
+		}
+		FOAC A 5;
+		FOAC A 0 A_ReFire("AltHold");
+		FOAC AAAA 1 A_WeaponOffset(0,4,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	DryFire:
+		FOAC A 0 A_StartSound("pea/empty",CHAN_WEAPON,CHANF_OVERLAP);
+		FOAC AA 1 A_WeaponOffset(0,1,WOF_ADD|WOF_INTERPOLATE);
+		FOAC A 2;
+		FOAC AAAA 1 A_WeaponOffset(0,-0.5,WOF_ADD|WOF_INTERPOLATE);
+		FOAC A 5;
+		FOAC A 0 A_ReFire("Hold");
+		FOAC AAAA 1 A_WeaponOffset(0,4,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	Deselect:
+		FOAC A 1 A_Lower(9);
+		Wait;
+	}
+}
+
+Class Foam : Actor
+{
+	bool attached;
+	Vector3 attachofs;
+	int cnt, cnt2;
+	double basescale;
+	Default
+	{
+		Obituary "$O_FOAM";
+		DeathSound "foam/hit";
+		BounceSound "foam/hit";
+		Radius 4;
+		Height 8;
+		Speed 50;
+		Scale 0.5;
+		Gravity 0.05;
+		DamageFunction (max(0,Random[Foams](-1,3)*(bAMBUSH?3:1)));
+		DamageType 'Foam';
+		RenderStyle "Shaded";
+		StencilColor "F0 FF D0";
+		BounceFactor 0.8;
+		WallBounceFactor 0.8;
+		PROJECTILE;
+		-NOGRAVITY;
+		+FORCEXYBILLBOARD;
+		+HITTRACER;
+		+BLOODLESSIMPACT;
+		+DONTGIB;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+USEBOUNCESTATE;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		frame = Random[Foams](0,19);
+		cnt = Random[Foams](-30,30);
+		cnt2 = Random[Foams](-30,30);
+		basescale = Scale.x*FRandom[Foams](0.5,1.5);
+		roll = FRandom[Foams](0,360);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		Scale.x = (basescale+sin(cnt)*0.1)*(0.5+alpha*0.5);
+		Scale.y = (basescale+cos(cnt2)*0.1)*(0.5+alpha*0.5);
+		cnt += Random[Foams](-3,6);
+		cnt2 += Random[Foams](-3,6);
+		if ( !attached ) return;
+		if ( tracer && tracer.bSHOOTABLE )
+		{
+			Warp(tracer,attachofs.x,attachofs.y,attachofs.z,0,WARPF_INTERPOLATE|WARPF_NOCHECKPOSITION|WARPF_ABSOLUTEOFFSET);
+			bNOGRAVITY = true;
+			if ( (bAMBUSH && !(cnt%5)) || !(cnt%25) )
+			{
+				if ( Random[Foams](0,2) ) return;
+				if ( !Random[Foams](0,5) ) tracer.DamageMobj(self,target,GetMissileDamage(0,0)*3,'Foam',DMG_THRUSTLESS);
+				else tracer.DamageMobj(self,target,GetMissileDamage(0,0),'Foam',DMG_THRUSTLESS|DMG_NO_PAIN);
+			}
+		}
+		else bNOGRAVITY = false;
+	}
+	States
+	{
+	Spawn:
+		FOAM # 1 A_FadeOut(FRandom[Foams](0.002,0.004));
+		Wait;
+	Bounce:
+		FOAM # 0
+		{
+			if ( vel.length() <= 30.0 ) ExplodeMissile();
+		}
+		Goto Spawn;
+	Death:
+		FOAM # 0
+		{
+			bNOGRAVITY = true;
+			if ( tracer )
+			{
+				invoker.attachofs = tracer.Vec3To(invoker);
+				invoker.attachofs.xy = invoker.attachofs.xy.unit()*tracer.radius*0.5;
+				invoker.attachofs -= (0,0,tracer.height*0.5);
+				invoker.attachofs.z *= 0.8;
+				invoker.attachofs += (0,0,tracer.height*0.5);
+				invoker.attached = true;
+			}
+		}
+		FOAM # 1 A_FadeOut(FRandom[Foams](0.006,0.012));
+		Wait;
+	}
+}

@@ -1,0 +1,408 @@
+Class AbortStatusBar : DoomStatusBar
+{
+	private HUDFont miniwi, mininums, smolfont;
+	DynamicValueInterpolator inter[11];
+	InventoryBarState InvBar;
+	Weapon lastweapon;
+
+	override void Init()
+	{
+		Super.Init();
+		SetSize(32,320,200);
+		miniwi = HUDFont.Create("hwfontty",4,true);
+		mininums = HUDFont.Create("h_numbers",4,true);
+		smolfont = HUDFont.Create("SmallFont");
+		for ( int i=0; i<11; i++ ) inter[i] = DynamicValueInterpolator.Create(0,0.25,1,4);
+		InvBar = InventoryBarState.Create(miniwi);
+	}
+
+	override void Draw( int state, double TicFrac )
+	{
+		BaseStatusBar.Draw(state,TicFrac);
+		if ( state == HUD_StatusBar )
+		{
+			BeginStatusBar(rel:64);
+			DrawAbortBar(TicFrac);
+		}
+		else if ( state == HUD_Fullscreen )
+		{
+			BeginHUD();
+			DrawAbortHUD(TicFrac);
+		}
+	}
+
+	protected void DrawSimpleBar( String gfx, double curval, double maxval, Vector2 position, int vertical, int flags = 0, Vector2 scale = (1,1) )
+	{
+		let tex = TexMan.CheckForTexture(gfx,TexMan.TYPE_MiscPatch);
+		if ( !tex.IsValid() ) return;
+		Vector2 texsize = TexMan.GetScaledSize(tex);
+		texsize.x *= scale.x;
+		texsize.y *= scale.y;
+		[position, flags] = AdjustPosition(position,flags,texsize.x,texsize.y);
+		double value = (maxval!=0)?clamp(curval/maxval,0,1):0;
+		// {cx, cb, cr, cy}
+		double Clip[4];
+		Clip[0] = Clip[1] = Clip[2] = Clip[3] = 0;
+		bool horizontal = !(vertical&SHADER_VERT);
+		bool reverse = !!(vertical&SHADER_REVERSE);
+		double sizeOfImage = (horizontal?texsize.x:texsize.y);
+		Clip[(!horizontal)|((!reverse)<<1)] = sizeOfImage-sizeOfImage*value;
+		// preserve the active clipping rectangle
+		int cx, cy, cw, ch;
+		[cx, cy, cw, ch] = Screen.GetClipRect();
+		SetClipRect(position.x+Clip[0],position.y+Clip[1],texsize.x-Clip[0]-Clip[2],texsize.y-Clip[1]-Clip[3],flags);
+		DrawTexture(tex,position,DI_ITEM_LEFT_TOP|flags,scale:scale);
+		Screen.SetClipRect(cx,cy,cw,ch);
+	}
+
+	protected void DrawAbortBar( double TicFrac )
+	{
+		DrawImage("h_base",(0,160),DI_ITEM_OFFSETS);
+		// extra widescreen filler
+		double base = -96;
+		double rx, dummy;
+		do
+		{
+			[rx, dummy, dummy] = StatusBarToRealCoords(base,0,HorizontalResolution);
+			if ( rx <= 0 ) continue;
+			DrawImage("h_basel",(base,160),DI_ITEM_OFFSETS);
+			base -= 95;
+		} while ( rx > 0 );
+		base = 416;
+		do
+		{
+			[rx, dummy, dummy] = StatusBarToRealCoords(base,0,HorizontalResolution);
+			if ( rx >= Screen.GetWidth() ) continue;
+			DrawImage("h_baser",(base,160),DI_ITEM_OFFSETS);
+			base += 95;
+		} while ( rx < Screen.GetWidth() );
+		if ( CPlayer.mo.FindInventory("OuchWeapon") )
+		{
+			DrawImage("h_lbase",(0,160),DI_ITEM_OFFSETS);
+			DrawSimpleBar("h_obar",inter[2].GetValue(),100,(2,162),0,DI_ITEM_OFFSETS);
+			// extra widescreen filler
+			base = -96;
+			do
+			{
+				[rx, dummy, dummy] = StatusBarToRealCoords(base,0,HorizontalResolution);
+				if ( rx <= 0 ) continue;
+				DrawImage("h_lbasel",(base,160),DI_ITEM_OFFSETS);
+				base -= 95;
+			} while ( rx > 0 );
+		}
+		if ( CPlayer.mo.FindInventory("ToolTim") )
+		{
+			DrawImage("h_rbase",(0,160),DI_ITEM_OFFSETS);
+			DrawSimpleBar("h_tbar",inter[3].GetValue(),100,(205,162),SHADER_REVERSE,DI_ITEM_OFFSETS);
+			// extra widescreen filler
+			base = 416;
+			do
+			{
+				[rx, dummy, dummy] = StatusBarToRealCoords(base,0,HorizontalResolution);
+				if ( rx >= Screen.GetWidth() ) continue;
+				DrawImage("h_rbaser",(base,160),DI_ITEM_OFFSETS);
+				base += 95;
+			} while ( rx < Screen.GetWidth() );
+		}
+		DrawSimpleBar("h_hbar1",inter[0].GetValue(),100,(16,175),0,DI_ITEM_OFFSETS);
+		if ( inter[0].GetValue() > 100 )
+			DrawSimpleBar("h_hbar2",inter[0].GetValue()-100,100,(16,175),0,DI_ITEM_OFFSETS);
+		if ( inter[0].GetValue() > 200 )
+			DrawSimpleBar("h_hbar3",inter[0].GetValue()-200,100,(16,175),0,DI_ITEM_OFFSETS);
+		if ( inter[0].GetValue() > 300 )
+			DrawSimpleBar("h_hbar4",inter[0].GetValue()-300,200,(16,175),0,DI_ITEM_OFFSETS);
+		DrawString(mininums,FormatNumber(inter[0].GetValue(),0,3),(108,176),DI_TEXT_ALIGN_LEFT);
+		DrawSimpleBar("h_abar1",inter[1].GetValue(),100,(16,187),0,DI_ITEM_OFFSETS);
+		if ( inter[1].GetValue() > 100 )
+			DrawSimpleBar("h_abar2",inter[1].GetValue()-100,100,(16,187),0,DI_ITEM_OFFSETS);
+		if ( inter[1].GetValue() > 200 )
+			DrawSimpleBar("h_abar3",inter[1].GetValue()-200,100,(16,187),0,DI_ITEM_OFFSETS);
+		if ( inter[1].GetValue() > 300 )
+			DrawSimpleBar("h_abar4",inter[1].GetValue()-300,200,(16,187),0,DI_ITEM_OFFSETS);
+		DrawString(mininums,FormatNumber(inter[1].GetValue(),0,3),(108,188),DI_TEXT_ALIGN_LEFT);
+		DrawString(mininums,FormatNumber(inter[4].GetValue(),0,3),(266,176),DI_TEXT_ALIGN_LEFT);
+		DrawString(mininums,FormatNumber(inter[5].GetValue(),0,3),(266,188),DI_TEXT_ALIGN_LEFT);
+		DrawString(mininums,FormatNumber(inter[6].GetValue(),0,2),(290,188),DI_TEXT_ALIGN_LEFT);
+		DrawString(mininums,FormatNumber(inter[7].GetValue(),0,2),(290,176),DI_TEXT_ALIGN_LEFT);
+		let ta = CPlayer.mo.FindInventory("TileAmmo");
+		if ( ta && (ta.Amount > 0) )
+		{
+			Vector2 ofs[8];
+			int x = 307;
+			int y = 174;
+			for ( int i=0; i<8; i++ )
+			{
+				ofs[i] = (x,y);
+				y += 6;
+				if ( i == 3 )
+				{
+					y = 177;
+					x += 6;
+				}
+			}
+			int cur = clamp(ta.Amount,0,8);
+			for ( int i=0; i<cur; i++ )
+				DrawImage("h_tile",ofs[(8-cur)+i],DI_ITEM_OFFSETS);
+		}
+		DrawString(miniwi,"1",(198,172),DI_TEXT_ALIGN_LEFT,CPlayer.HasWeaponsInSlot(1)?Font.CR_GREEN:Font.CR_DARKGREEN);
+		DrawString(miniwi,"2",(204,172),DI_TEXT_ALIGN_LEFT,CPlayer.HasWeaponsInSlot(2)?Font.CR_GREEN:Font.CR_DARKGREEN);
+		DrawString(miniwi,"3",(210,172),DI_TEXT_ALIGN_LEFT,CPlayer.HasWeaponsInSlot(3)?Font.CR_GREEN:Font.CR_DARKGREEN);
+		DrawString(miniwi,"4",(216,172),DI_TEXT_ALIGN_LEFT,CPlayer.HasWeaponsInSlot(4)?Font.CR_GREEN:Font.CR_DARKGREEN);
+		DrawString(miniwi,"5",(228,172),DI_TEXT_ALIGN_LEFT,CPlayer.HasWeaponsInSlot(5)?Font.CR_GREEN:Font.CR_DARKGREEN);
+		DrawString(miniwi,"6",(234,172),DI_TEXT_ALIGN_LEFT,CPlayer.HasWeaponsInSlot(6)?Font.CR_GREEN:Font.CR_DARKGREEN);
+		DrawString(miniwi,"7",(240,172),DI_TEXT_ALIGN_LEFT,CPlayer.HasWeaponsInSlot(7)?Font.CR_GREEN:Font.CR_DARKGREEN);
+		DrawString(miniwi,"8",(246,172),DI_TEXT_ALIGN_LEFT,CPlayer.HasWeaponsInSlot(8)?Font.CR_GREEN:Font.CR_DARKGREEN);
+		let w = Weapon(CPlayer.ReadyWeapon);
+		if ( w )
+		{
+			// Underline selected slot
+			if ( (w.SlotNumber >= 1) && (w.SlotNumber <= 8) )
+				Fill(Color(255,44,95,39),198+inter[8].GetValue(),179,3,1);
+			String txt = w.GetTag("?WeaponName?");
+			let l = miniwi.mFont.BreakLines(txt,55);
+			double basey = 189;
+			if ( l.Count() > 1 ) basey -= miniwi.mFont.GetHeight();
+			for ( int i=0; i<l.Count(); i++ )
+			{
+				if ( i > 1 ) break;
+				String ln = l.StringAt(i);
+				if ( ln.length() > 13 ) txt = String.Format("%s...",ln.Left(10));
+				DrawString(miniwi,ln,(224,basey),DI_TEXT_ALIGN_CENTER,Font.CR_GREEN);
+				basey += miniwi.mFont.GetHeight();
+			}
+		}
+		if ( CPlayer.mo.CheckKeys(2,false,true) ) DrawImage("STKEYS0",(131,171),DI_ITEM_OFFSETS);
+		else DrawImage("h_nocard",(131,171),DI_ITEM_OFFSETS);
+		if ( CPlayer.mo.CheckKeys(3,false,true) ) DrawImage("STKEYS1",(131,181),DI_ITEM_OFFSETS);
+		else DrawImage("h_nocard",(131,181),DI_ITEM_OFFSETS);
+		if ( CPlayer.mo.CheckKeys(1,false,true) ) DrawImage("STKEYS2",(131,191),DI_ITEM_OFFSETS);
+		else DrawImage("h_nocard",(131,191),DI_ITEM_OFFSETS);
+		if ( CPlayer.mo.CheckKeys(5,false,true) ) DrawImage("STKEYS3",(181,171),DI_ITEM_OFFSETS);
+		else DrawImage("h_noskul",(181,171),DI_ITEM_OFFSETS);
+		if ( CPlayer.mo.CheckKeys(6,false,true) ) DrawImage("STKEYS4",(181,181),DI_ITEM_OFFSETS);
+		else DrawImage("h_noskul",(181,181),DI_ITEM_OFFSETS);
+		if ( CPlayer.mo.CheckKeys(4,false,true) ) DrawImage("STKEYS5",(181,191),DI_ITEM_OFFSETS);
+		else DrawImage("h_noskul",(181,191),DI_ITEM_OFFSETS);
+		if ( multiplayer ) DrawImage("h_ban",(143,169),DI_ITEM_OFFSETS|DI_TRANSLATABLE);
+		let be = AAAAAAAAA(CPlayer.mo.FindInventory("AAAAAAAAA"));
+		if ( CPlayer.mo.InvSel && !level.NoInventoryBar )
+		{
+			DrawInventoryIcon(CPlayer.mo.InvSel,(160,198));
+			if ( CPlayer.mo.InvSel.Amount > 1 )
+				DrawString(mininums,FormatNumber(CPlayer.mo.InvSel.Amount),(175,198-mininums.mFont.GetHeight()),DI_TEXT_ALIGN_RIGHT);
+		}
+		else if ( be && (be.effecttics > 0) )
+		{
+			String btex = "h_none";
+			switch ( be.skin )
+			{
+			case 0:
+				btex = "h_cboy";
+				break;
+			case 1:
+				btex = "h_nedm";
+				break;
+			case 2:
+				btex = "h_heya";
+				break;
+			case 3:
+				btex = "h_bees";
+				break;
+			case 4:
+				btex = "h_rice";
+				break;
+			case 5:
+				btex = "h_engi";
+				break;
+			case 6:
+				btex = "h_teto";
+				break;
+			case 7:
+				btex = "h_pipo";
+				break;
+			case 8:
+				btex = "h_duan01";
+				break;
+			}
+			DrawImage(btex,(144,170),DI_ITEM_OFFSETS|DI_DIM,1.,scale:(32./60.,30./64.));
+			DrawSimpleBar(btex,be.effecttics,be.maxtics,(144,170),SHADER_VERT|SHADER_REVERSE,DI_ITEM_OFFSETS,(32./60.,30./64.));
+		}
+		else
+		{
+			bool norampage = CPlayer.ReadyWeapon is 'FingerPoke' && CPlayer.ReadyWeapon.bAltFire;
+			DrawTexture(GetMugShot(5,norampage?MugShot.DISABLERAMPAGE:MugShot.STANDARD),(143,168),DI_ITEM_OFFSETS);
+		}
+		if ( IsInventoryBarVisible() ) DrawInventoryBar(InvBar,(48,8),7,DI_ITEM_LEFT_TOP);
+	}
+
+	protected void DrawAbortHUD( double TicFrac )
+	{
+		DrawImage("h_hbar0",(44,-36),DI_ITEM_OFFSETS);
+		DrawImage("h_abar0",(44,-22),DI_ITEM_OFFSETS);
+		DrawSimpleBar("h_hbar1",inter[0].GetValue(),100,(44,-36),0,DI_ITEM_OFFSETS);
+		if ( inter[0].GetValue() > 100 )
+			DrawSimpleBar("h_hbar2",inter[0].GetValue()-100,100,(44,-36),0,DI_ITEM_OFFSETS);
+		if ( inter[0].GetValue() > 200 )
+			DrawSimpleBar("h_hbar3",inter[0].GetValue()-200,100,(44,-36),0,DI_ITEM_OFFSETS);
+		if ( inter[0].GetValue() > 300 )
+			DrawSimpleBar("h_hbar4",inter[0].GetValue()-300,200,(44,-36),0,DI_ITEM_OFFSETS);
+		DrawString(mininums,FormatNumber(inter[0].GetValue(),0,3),(136,-35),DI_TEXT_ALIGN_LEFT);
+		DrawSimpleBar("h_abar1",inter[1].GetValue(),100,(44,-22),0,DI_ITEM_OFFSETS);
+		if ( inter[1].GetValue() > 100 )
+			DrawSimpleBar("h_abar2",inter[1].GetValue()-100,100,(44,-22),0,DI_ITEM_OFFSETS);
+		if ( inter[1].GetValue() > 200 )
+			DrawSimpleBar("h_abar3",inter[1].GetValue()-200,100,(44,-22),0,DI_ITEM_OFFSETS);
+		if ( inter[1].GetValue() > 300 )
+			DrawSimpleBar("h_abar4",inter[1].GetValue()-300,200,(44,-22),0,DI_ITEM_OFFSETS);
+		DrawString(mininums,FormatNumber(inter[1].GetValue(),0,3),(136,-21),DI_TEXT_ALIGN_LEFT);
+		let be = AAAAAAAAA(CPlayer.mo.FindInventory("AAAAAAAAA"));
+		if ( CPlayer.mo.InvSel && !level.NoInventoryBar )
+		{
+			DrawInventoryIcon(CPlayer.mo.InvSel,(24,-24),DI_ITEM_CENTER);
+			if ( CPlayer.mo.InvSel.Amount > 1 )
+				DrawString(mininums,FormatNumber(CPlayer.mo.InvSel.Amount),(40,-(8+mininums.mFont.GetHeight())),DI_TEXT_ALIGN_RIGHT);
+		}
+		else if ( be && (be.effecttics > 0) )
+		{
+			String btex = "h_none";
+			switch ( be.skin )
+			{
+			case 0:
+				btex = "h_cboy";
+				break;
+			case 1:
+				btex = "h_nedm";
+				break;
+			case 2:
+				btex = "h_heya";
+				break;
+			case 3:
+				btex = "h_bees";
+				break;
+			case 4:
+				btex = "h_rice";
+				break;
+			case 5:
+				btex = "h_engi";
+				break;
+			case 6:
+				btex = "h_teto";
+				break;
+			case 7:
+				btex = "h_pipo";
+				break;
+			case 8:
+				btex = "h_duan01";
+				break;
+			}
+			DrawImage(btex,(9,-41),DI_ITEM_OFFSETS|DI_DIM,1.,scale:(.5,.5));
+			DrawSimpleBar(btex,be.effecttics,be.maxtics,(9,-41),SHADER_VERT|SHADER_REVERSE,DI_ITEM_OFFSETS,(.5,.5));
+		}
+		else
+		{
+			bool norampage = CPlayer.ReadyWeapon is 'FingerPoke' && CPlayer.ReadyWeapon.bAltFire;
+			DrawTexture(GetMugShot(5,norampage?MugShot.DISABLERAMPAGE:MugShot.STANDARD),(7,-42),DI_ITEM_OFFSETS);
+		}
+		let w = CPlayer.ReadyWeapon;
+		if ( w )
+		{
+			Ammo a1, a2;
+			double oy = 0;
+			[a1, a2] = GetCurrentAmmo();
+			if ( a1 )
+			{
+				DrawInventoryIcon(w.Ammo1,(-8,-8),DI_ITEM_RIGHT_BOTTOM);
+				DrawString(mininums,FormatNumber(inter[9].GetValue()),(-6,-12),DI_TEXT_ALIGN_RIGHT);
+				oy -= 20;
+			}
+			if ( a2 && (a2 != a1) )
+			{
+				DrawInventoryIcon(w.Ammo2,(-8,-8+oy),DI_ITEM_RIGHT_BOTTOM);
+				DrawString(mininums,FormatNumber(inter[10].GetValue()),(-6,-12+oy),DI_TEXT_ALIGN_RIGHT);
+			}
+		}
+		Vector2 keypos = (-10, 2);
+		int rowc = 0;
+		double roww = 0;
+		for ( Inventory i = CPlayer.mo.Inv; i; i = i.Inv )
+		{
+			if ( !(i is "Key") || !i.Icon.IsValid() ) continue;
+			DrawTexture(i.Icon,keypos,DI_SCREEN_RIGHT_TOP|DI_ITEM_LEFT_TOP);
+			Vector2 size = TexMan.GetScaledSize(i.Icon);
+			keypos.Y += size.Y+2;
+			roww = max(roww,size.X);
+			if ( ++rowc == 3 )
+			{
+				keypos.Y = 2;
+				keypos.X -= roww + 2;
+				roww = 0;
+				rowc = 0;
+			}
+		}
+		if ( IsInventoryBarVisible() ) DrawInventoryBar(InvBar,(48,8),7,DI_ITEM_LEFT_TOP);
+	}
+
+	override int GetProtrusion( double scaleratio )
+	{
+		if ( CPlayer.mo.FindInventory("OuchWeapon") || CPlayer.mo.FindInventory("ToolTim") )
+			return 8;
+		return 0;
+	}
+
+	override void NewGame()
+	{
+		Super.NewGame();
+		for ( int i=0; i<11; i++ ) inter[i].Reset(0);
+	}
+
+	override void Tick()
+	{
+		Super.Tick();
+		inter[0].Update(CPlayer.Health);
+		Inventory armo = CPlayer.mo.FindInventory("BasicArmor");
+		if ( armo ) inter[1].Update(armo.Amount);
+		else inter[0].Update(0);
+		Inventory ouch = CPlayer.mo.FindInventory("OuchEnergy"),
+			tim = CPlayer.mo.FindInventory("ToolEnergy");
+		if ( ouch ) inter[2].Update(ouch.Amount);
+		else inter[2].Update(0);
+		if ( tim ) inter[3].Update(tim.Amount);
+		else inter[3].Update(0);
+		Inventory peas = CPlayer.mo.FindInventory("Peas"),
+			pell = CPlayer.mo.FindInventory("Pellets"),
+			fing = CPlayer.mo.FindInventory("LewdAmmo"),
+			succ = CPlayer.mo.FindInventory("Bepis");
+		if ( peas ) inter[4].Update(peas.Amount);
+		else inter[4].Update(0);
+		if ( pell ) inter[5].Update(pell.Amount);
+		else inter[5].Update(0);
+		if ( fing ) inter[6].Update(fing.Amount);
+		else inter[6].Update(0);
+		if ( succ ) inter[7].Update(succ.Amount);
+		else inter[7].Update(0);
+		let w = CPlayer.ReadyWeapon;
+		if ( w )
+		{
+			// Underline selected slot
+			if ( (w.SlotNumber >= 1) && (w.SlotNumber <= 8) )
+			{
+				static const int wofs[] =
+				{
+					0, 6, 12, 18, 30, 36, 42, 48
+				};
+				inter[8].Update(wofs[w.SlotNumber-1]);
+			}
+		}
+		Ammo a1, a2;
+		int n1, n2;
+		[a1, a2, n1, n2] = GetCurrentAmmo();
+		inter[9].Update(n1);
+		inter[10].Update(n2);
+		if ( w != lastweapon )
+		{
+			inter[9].Reset(n1);
+			inter[10].Reset(n2);
+		}
+		lastweapon = w;
+	}
+}

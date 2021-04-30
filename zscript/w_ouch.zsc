@@ -1,0 +1,567 @@
+Class OuchEnergy : Ammo
+{
+	TextureID TexA, TexB, TexC, TexD, TexE;
+	int regenct;
+	Default
+	{
+		Inventory.Amount 0;
+		Inventory.MaxAmount 100;
+		Ammo.BackpackAmount 0;
+		Ammo.BackpackMaxAmount 100;
+		Inventory.Icon "OUCHF0";
+		+INVENTORY.UNDROPPABLE;
+		+INVENTORY.UNTOSSABLE;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		TexA = TexMan.CheckForTexture("OUCHA0",TexMan.Type_Any);
+		TexB = TexMan.CheckForTexture("OUCHB0",TexMan.Type_Any);
+		TexC = TexMan.CheckForTexture("OUCHC0",TexMan.Type_Any);
+		TexD = TexMan.CheckForTexture("OUCHE0",TexMan.Type_Any);
+		TexE = TexMan.CheckForTexture("OUCHF0",TexMan.Type_Any);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !Owner || !Owner.FindInventory("OuchWeapon") ) return;
+		regenct++;
+		if ( Owner.CountInv("AAAAAAAAA") || (regenct > 30) )
+		{
+			regenct = 0;
+			Amount = Min(MaxAmount,Amount+1);
+		}
+		if ( amount < 90 ) Icon = TexA;
+		else if ( amount < 96 ) Icon = TexB;
+		else if ( amount < 99 ) Icon = TexC;
+		else if ( amount < 100 ) Icon = TexD;
+		else Icon = TexE;
+	}
+}
+
+Class OuchFace : Actor
+{
+	int screamcount;
+	int screamtimer, tickcount;
+	double basescale;
+
+	action void A_SafeExplode( int damage, int distance )
+	{
+		BlockThingsIterator bi = BlockThingsIterator.Create(invoker,distance);
+		while ( bi.Next() )
+		{
+			Actor a = bi.Thing;
+			if ( !a || !a.bSHOOTABLE || (a == invoker) || (a == target) ||
+				(target && target.player && a.player && (a.player == target.player)) )
+				continue;
+			a.DamageMobj(invoker,target,damage,'Ouch');
+			a.vel += Vec3To(a).unit()*(10.*damage)/a.mass;
+		}
+	}
+
+	override void Tick()
+	{
+		Super.Tick();
+		// destroy ourselves if we go anywhere out of bounds
+		double maxpos = max(max(pos.x,pos.y),pos.z);
+		double minpos = min(min(pos.x,pos.y),pos.z);
+		if ( (screamcount > 30) || (maxpos > 32000) || (minpos < -32000) )
+		{
+			let s = Spawn("OuchXplodLess",pos);
+			s.target = target;
+			Destroy();
+			return;
+		}
+		if ( screamtimer-- <= 0 )
+		{
+			screamcount++;
+			if ( pos.z <= floorz ) vel.z = FRandom[Ouch](2.0,8.0);
+			A_AlertMonsters();
+			A_StartSound("ouch/dspdiehi",CHAN_VOICE,CHANF_OVERLAP,FRandom[Ouch](0.1,0.4),pitch:FRandom[Ouch](0.75,1.5));
+			screamtimer = Random[Ouch](20,50);
+			SetStateLabel("Scream");
+			A_QuakeEx(1,1,1,30,0,300,"",QF_RELATIVE|QF_SCALEDOWN,falloff:100,rollIntensity:0.1);
+			A_SafeExplode(10,80);
+		}
+		tickcount++;
+		if ( !(tickcount%8) ) A_ChangeVelocity(vel.x+FRandom[Ouch](-1.0,1.0),vel.y+FRandom[Ouch](-1.0,1.0),vel.z+FRandom[Ouch](-0.8,0.8));
+		A_SetScale(basescale*FRandom[Ouch](0.75,1.5),basescale*FRandom[Ouch](0.75,1.5));
+	}
+
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		screamtimer = 0;
+		screamcount = 0;
+		tickcount = Random[Ouch](0,100);
+		basescale = FRandom[Ouch](0.6,0.8);
+	}
+
+	Default
+	{
+		Radius 8;
+		Height 16;
+		+NOBLOCKMAP;
+		+DROPOFF;
+		+FORCERADIUSDMG;
+	}
+	States
+	{
+	Spawn:
+		OUCH C -1;
+		Stop;
+	Scream:
+		OUCH E 4;
+		OUCH F 12;
+		OUCH E 8;
+		Goto Spawn;
+	}
+}
+
+Class OuchSmk : Actor
+{
+	Default
+	{
+		+NOGRAVITY;
+		+NOBlOCKMAP;
+		Scale 2.0;
+	}
+	States
+	{
+	Spawn:
+		DZMK ABCD 8;
+		Stop;
+	}
+}
+
+Class OuchXplod : Actor
+{
+	action void A_SafeExplode( int damage, int distance )
+	{
+		BlockThingsIterator bi = BlockThingsIterator.Create(invoker,distance);
+		while ( bi.Next() )
+		{
+			Actor a = bi.Thing;
+			if ( !a || !a.bSHOOTABLE || (a == invoker) || (a == target) ||
+				(target && target.player && a.player && (a.player == target.player)) )
+				continue;
+			a.DamageMobj(invoker,target,damage,'Ouch');
+			a.vel += Vec3To(a).unit()*(10.*damage)/a.mass;
+			a.vel.z += (5.*damage)/a.mass;
+		}
+	}
+	Default
+	{
+		Obituary "$O_OUCH";
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+		+FORCERADIUSDMG;
+	}
+	States
+	{
+	Spawn:
+		TNT1 A 0 NoDelay A_SetTics(Random[Face](1,8));
+		TNT1 A 0
+		{
+			A_AlertMonsters();
+			A_QuakeEx(3,3,3,30,0,800,"",QF_RELATIVE|QF_SCALEDOWN,falloff:400,rollIntensity:0.5);
+			A_SafeExplode(300,300);
+			A_StartSound("blast/splode");
+			for ( int i=0; i<4; i++ )
+				A_SpawnItemEx("OuchSmk",FRandom[Face](-6,6),FRandom[Face](-6,6),FRandom[Face](4,10),FRandom[Face](-2,2),FRandom[Face](-2,2),FRandom[Face](0,5),0,SXF_TRANSFERPOINTERS);
+		}
+		DEXP ABCD 4 Bright;
+		Stop;
+	}
+}
+
+Class OuchXplodBig : Actor
+{
+	action void A_SafeExplode( int damage, int distance )
+	{
+		BlockThingsIterator bi = BlockThingsIterator.Create(invoker,distance);
+		while ( bi.Next() )
+		{
+			Actor a = bi.Thing;
+			if ( !a || !a.bSHOOTABLE || (a == invoker) || (a == target) ||
+				(target && target.player && a.player && (a.player == target.player)) )
+				continue;
+			a.DamageMobj(invoker,target,damage,'Ouch');
+			a.vel += Vec3To(a).unit()*(10.*damage)/a.mass;
+			a.vel.z += (5.*damage)/a.mass;
+		}
+	}
+	Default
+	{
+		Obituary "$O_OUCHFAST";
+		Scale 2.0;
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+		+FORCERADIUSDMG;
+	}
+	States
+	{
+	Spawn:
+		TNT1 A 0 NoDelay A_SetTics(Random[Face](1,8));
+		TNT1 A 0
+		{
+			// avoid nuking owner
+			// double-check to avoid nuking vodoo dolls too
+			if ( (tracer != target) && (!tracer.player || (tracer.player.mo == tracer)) )
+			{
+				tracer.DamageMobj(invoker,target,int.max,'Ouch',DMG_FORCED,FRandom[Ouch](0,360));
+				tracer.vel.z += 1000./tracer.mass;
+			}
+			A_AlertMonsters();
+			A_QuakeEx(6,6,6,30,0,1200,"",QF_RELATIVE|QF_SCALEDOWN,falloff:900,rollIntensity:1.0);
+			A_SafeExplode(800,800);
+			A_StartSound("blast/splode",attenuation:0.01);
+			for ( int i=0; i<8; i++ )
+				A_SpawnItemEx("OuchSmk",FRandom[Face](-6,6),FRandom[Face](-6,6),FRandom[Face](4,10),FRandom[Face](-2,2),FRandom[Face](-2,2),FRandom[Face](0,5));
+			for ( int i=0; i<8; i++ )
+				A_SpawnItemEx("OuchFace",Frandom[Face](-4,4),Frandom[Face](-4,4),Frandom[Face](2,8),flags:SXF_TRANSFERPOINTERS);
+		}
+		DEXP ABCD 6 Bright;
+		Stop;
+	}
+}
+
+Class OuchXplodLess : Actor
+{
+	action void A_SafeExplode( int damage, int distance )
+	{
+		BlockThingsIterator bi = BlockThingsIterator.Create(invoker,distance);
+		while ( bi.Next() )
+		{
+			Actor a = bi.Thing;
+			if ( !a || !a.bSHOOTABLE || (a == invoker) || (a == target) ||
+				(target && target.player && a.player && (a.player == target.player)) )
+				continue;
+			a.DamageMobj(invoker,target,damage,'Ouch');
+			a.vel += Vec3To(a).unit()*(10.*damage)/a.mass;
+			a.vel.z += (5.*damage)/a.mass;
+		}
+	}
+	Default
+	{
+		Scale 0.5;
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+		+FORCERADIUSDMG;
+	}
+	States
+	{
+	Spawn:
+		TNT1 A 0
+		{
+			A_AlertMonsters();
+			A_QuakeEx(2,2,2,20,0,600,"",QF_RELATIVE|QF_SCALEDOWN,falloff:400,rollIntensity:0.2);
+			A_SafeExplode(50,50);
+			A_StartSound("blast/splode");
+			for ( int i=0; i<4; i++ )
+				A_SpawnItemEx("OuchSmk",FRandom[Face](-6,6),FRandom[Face](-6,6),FRandom[Face](4,10),FRandom[Face](-2,2),FRandom[Face](-2,2),FRandom[Face](0,5));
+		}
+		DEXP ABCD 3 Bright;
+		Stop;
+	}
+}
+
+Class OuchBarrage : Actor
+{
+	int splodcnt;
+	Default
+	{
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+		Speed 30;
+		FloatSpeed 2;
+		ReactionTime 30;
+	}
+	action void A_Splode()
+	{
+		invoker.splodcnt++;
+		int max = int(8*(invoker.splodcnt**0.5));
+		for ( int i=0; i<max; i++ )
+		{
+			double ang = i*(360./max)+FRandom[Ouch](-15,15);
+			Vector3 dir = (cos(ang),sin(ang),0);
+			double ofs = invoker.splodcnt*speed*FRandom[Ouch](1.0,1.5);
+			let a = Spawn("OuchXplod",pos+dir*ofs);
+			a.SetOrigin((a.pos.x,a.pos.y,a.floorz),false);
+			a.target = target;
+		}
+		A_SetTics(int(FloatSpeed)*Random[Ouch](1,2));
+		A_Countdown();
+	}
+	States
+	{
+	Spawn:
+		TNT1 A 0 NoDelay { invoker.splodcnt = 0; }
+		TNT1 A 8 A_Splode;
+		Wait;
+	}
+}
+
+Class BurnItAllDown : Actor
+{
+	ThinkerIterator ti;
+	int totaltime;
+	Default
+	{
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+	}
+	action void A_ItBegins()
+	{
+		A_StartSound("ouch/itbegins",CHAN_BODY,CHANF_DEFAULT,1.0,ATTN_NONE);
+		A_StartSound("ouch/itbegins",CHAN_5,CHANF_DEFAULT,1.0,ATTN_NONE);
+		A_StartSound("ouch/itbegins",CHAN_6,CHANF_DEFAULT,1.0,ATTN_NONE);
+		A_StartSound("ouch/itbegins",CHAN_7,CHANF_DEFAULT,1.0,ATTN_NONE);
+		let ga = GibeAbort(EventHandler.Find("GibeAbort"));
+		ga.ouching = true;
+		A_QuakeEx(9,9,9,240,0,65535,"",QF_RELATIVE|QF_SCALEUP,rollIntensity:2.0);
+		if ( !target ) return;
+		for ( Inventory i = target.Inv; i; i = i.Inv )
+		{
+			String iname = i.GetClassName();
+			if ( (i is 'Powerup') && (iname.Left(9) ~== "AAAAAAAAA") )
+				Powerup(i).EffectTics = Min(Powerup(i).EffectTics,150);
+		}
+	}
+	action void A_Incoming()
+	{
+		A_StartSound("ouch/burnit",CHAN_BODY,CHANF_DEFAULT,1.0,ATTN_NONE);
+		A_StartSound("ouch/burnit",CHAN_5,CHANF_DEFAULT,1.0,ATTN_NONE);
+		A_StartSound("ouch/burnit",CHAN_6,CHANF_DEFAULT,1.0,ATTN_NONE);
+		A_StartSound("ouch/burnit",CHAN_7,CHANF_DEFAULT,1.0,ATTN_NONE);
+		invoker.ti = ThinkerIterator.Create("Actor");
+		if ( !target ) return;
+		target.TakeInventory("OuchWeapon",1);
+		target.TakeInventory("OuchEnergy",100);
+		target.A_SelectWeapon("FingerPoke");
+	}
+	action bool A_FuckEverything()
+	{
+		Actor a;
+		do
+		{
+			a = Actor(invoker.ti.Next());
+		} until ( !a || a.bSHOOTABLE );
+		if ( !a ) return false;
+		let s = Spawn("OuchXplodBig",a.pos);
+		s.target = target;
+		s.tracer = a;
+		return true;
+	}
+	action void A_SettleDown()
+	{
+		let ga = GibeAbort(EventHandler.Find("GibeAbort"));
+		ga.ouching = false;
+		A_QuakeEx(9,9,9,120,0,65535,"",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:2.0);
+	}
+	States
+	{
+	Spawn:
+		TNT1 A 250 NoDelay A_ItBegins();
+		TNT1 A 0 A_Incoming();
+	KeepGoing:
+		TNT1 A 5
+		{
+			int ntics = Random[Ouch](2,6);
+			A_SetTics(ntics);
+			invoker.totaltime += ntics;
+		}
+		TNT1 A 0 A_JumpIf(A_FuckEverything(),"KeepGoing");
+		TNT1 A 50
+		{
+			if ( invoker.totaltime < 300 ) A_SetTics(350-invoker.totaltime);
+		}
+		TNT1 A 120 A_SettleDown();
+		Stop;
+	}
+}
+
+const PSP_LHAND = PSP_WEAPON+1;
+const PSP_RHAND = PSP_WEAPON+2;
+const PSP_OFACE = PSP_WEAPON+3;
+
+Class OuchWeapon : AbortWeapon
+{
+	double vibeforce;
+	bool isactivated;
+	override void ModifyDamage( int damage, Name damageType, out int newdamage, bool passive )
+	{
+		if ( damage <= 0 ) return;
+		if ( passive && isactivated ) newdamage = 0;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		isactivated = false;
+	}
+	override void DetachFromOwner()
+	{
+		Super.DetachFromOwner();
+		isactivated = false;
+	}
+	action void A_FacePain()
+	{
+		A_StartSound("ouch/pain",CHAN_WEAPON);
+	}
+	action void A_FaceFire()
+	{
+		A_AlertMonsters();
+		A_StartSound("ouch/fire",CHAN_WEAPON);
+	}
+	action void A_FaceScream()
+	{
+		A_AlertMonsters();
+		A_StartSound("ouch/scream",CHAN_WEAPON);
+	}
+	action void A_FireBarrage()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		if ( weap.Ammo1.Amount <= 0 ) return;
+		weap.DepleteAmmo(weap.bAltFire,true,1);
+		let b = Spawn("OuchBarrage",pos);
+		b.target = self;
+		GibeAbort.DoFlash(self,"White",15);
+	}
+	action void A_BlowUpEverything()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		let b = Spawn("BurnItAllDown",pos);
+		b.target = self;
+	}
+	Default
+	{
+		Tag "$T_OUCH";
+		Inventory.PickupMessage "$I_OUCH";
+		Weapon.SlotNumber 7;
+		Weapon.SelectionOrder 10;
+		Weapon.AmmoGive 100;
+		Weapon.AmmoType "OuchEnergy";
+		Weapon.AmmoUse 100;
+		Weapon.MinSelectionAmmo1 100;
+		AbortWeapon.KickTics 12;
+		AbortWeapon.KickX 0;
+		AbortWeapon.KickY 2;
+		AbortWeapon.ThrowForce 1.5;
+		AbortWeapon.ThrowMass 1000;
+		AbortWeapon.ThrowName "$W_OUCH";
+		Scale 0.35;
+	}
+	States
+	{
+	Spawn:
+		OUCH A -1;
+		Stop;
+	Ready:
+		TNT1 A 0
+		{
+			A_Overlay(PSP_LHAND,"Hand");
+			A_Overlay(PSP_RHAND,"Hand");
+			A_OverlayFlags(PSP_RHAND,PSPF_FLIP|PSPF_MIRROR,true);
+			A_Overlay(PSP_OFACE,"Face");
+		}
+		TNT1 A 1 A_WeaponReady(WRF_ALLOWRELOAD|WRF_ALLOWZOOM);
+		Wait;
+	Fire:
+		TNT1 AAAAAA 1 A_WeaponOffset(0,-4,WOF_ADD|WOF_INTERPOLATE);
+	Hold:
+		TNT1 A 30 A_JumpIfNoAmmo("NoWakey");
+		TNT1 A 0 { Invoker.isactivated = true; }
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),"FastFire");
+		TNT1 A 70 A_Overlay(PSP_OFACE,"FaceWake");
+		TNT1 A 60 A_Overlay(PSP_OFACE,"FaceScream");
+		TNT1 A 20 A_FireBarrage();
+		TNT1 A 20 A_Overlay(PSP_OFACE,"FaceStopScream");
+		TNT1 A 30 A_Overlay(PSP_OFACE,"FaceSleep");
+		TNT1 A 0 { Invoker.isactivated = false; }
+		TNT1 A 0 A_Refire();
+		TNT1 AAAA 1 A_WeaponOffset(0,6,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	NoWakey:
+		TNT1 A 30;
+		TNT1 A 0 A_Refire();
+		TNT1 AAAA 1 A_WeaponOffset(0,6,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	FastFire:
+		TNT1 A 90 A_Overlay(PSP_OFACE,"FaceWake");
+		TNT1 A 0 A_Overlay(PSP_OFACE,"FaceBigScream");
+		TNT1 A 1
+		{
+			A_OverlayOffset(PSP_OFACE,0,-0.5,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_LHAND,-0.5,0.2,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_RHAND,-0.5,0.2,WOF_ADD|WOF_INTERPOLATE);
+			return A_JumpIf(OverlayY(PSP_OFACE)<=-30,1);
+		}
+		Goto FastFire+2;
+		TNT1 A 0
+		{
+			A_BlowUpEverything();
+			invoker.vibeforce = 0.0;
+		}
+		TNT1 A 1
+		{
+			A_OverlayOffset(PSP_LHAND,-0.2,0.5,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_RHAND,-0.2,0.5,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_OFACE,FRandom[Ouch](-invoker.vibeforce,invoker.vibeforce),-30+FRandom[Ouch](-invoker.vibeforce,invoker.vibeforce));
+			invoker.vibeforce += 0.1;
+		}
+		Wait;
+	Select:
+		TNT1 A 0 A_WeaponOffset(0,WEAPONBOTTOM*2);
+		TNT1 A 0
+		{
+			A_Overlay(PSP_LHAND,"Hand");
+			A_Overlay(PSP_RHAND,"Hand");
+			A_OverlayFlags(PSP_RHAND,PSPF_FLIP|PSPF_MIRROR,true);
+			A_Overlay(PSP_OFACE,"Face");
+		}
+		TNT1 A 1 A_TallRaise(12);
+		Wait;
+	Deselect:
+		TNT1 A 1 A_TallLower(12);
+		Wait;
+	Hand:
+		OHND A 1;
+		Wait;
+	Face:
+		OFAC A 1;
+		Wait;
+	FaceWake:
+		OFAC A 8;
+		OFAC B 10;
+		OFAC A 2;
+		OFAC B 8;
+		OFAC A 2;
+		OFAC B 8;
+		OFAC A 2;
+		OFAC B 1;
+		Wait;
+	FaceScream:
+		OFAC C 30;
+		OFAC E 10 A_FaceFire();
+		OFAC F 1;
+		Wait;
+	FaceBigScream:
+		OFAC C 50;
+		OFAC D 160 A_FacePain();
+		OFAC C 10;
+		OFAC E 10 A_FaceScream();
+		OFAC F 1;
+		Wait;
+	FaceStopScream:
+		OFAC F 1;
+		OFAC E 10;
+		OFAC C 5;
+		OFAC B 1;
+		Wait;
+	FaceSleep:
+		OFAC B 20;
+		Goto Face;
+	}
+}

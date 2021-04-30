@@ -1,0 +1,175 @@
+Class FlyingRevSkull : Actor
+{
+	transient CVar debugmsg;
+	double rollvel, sndtimer;
+	int stuckcnt;
+	Vector3 lastpos;
+	bool kicked;
+	Default
+	{
+		Tag "$T_REVSKULL";
+		Obituary "$O_REVSKULL";
+		Radius 8;
+		Height 8;
+		Speed 20;
+		DamageFunction clamp(vel.length()*2,0,100);
+		BounceFactor 0.75;
+		Mass 100;
+		Health 1;
+		PROJECTILE;
+		-NOGRAVITY
+		+FORCEPAIN
+		+USEBOUNCESTATE
+		+BOUNCEONWALLS
+		+BOUNCEONFLOORS
+		+BOUNCEONCEILINGS
+		+ALLOWBOUNCEONACTORS
+		+BOUNCEONACTORS
+		+BOUNCEAUTOOFFFLOORONLY
+		+ROLLSPRITE
+		+ROLLCENTER
+		+SEEKERMISSILE
+		+NOBLOOD
+		+NODAMAGE
+		+SHOOTABLE
+		+INTERPOLATEANGLES
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		stuckcnt = 0;
+		kicked = false;
+		rollvel = FRandom[Gibs](50,100)*RandomPick[Gibs](-1,1);
+		sndtimer = 0;
+		A_StartSound("skeleton/loopscream",CHAN_VOICE,CHANF_LOOP);
+		// calculate launch velocity in order to hit target
+		if ( !tracer || (Random[Gibs](0,5) > 2) )
+		{
+			angle = FRandom[Gibs](0,360);
+			pitch = FRandom[Gibs](-60,15);
+			vel = FRandom[Gibs](0.4,1.2)*speed*(cos(angle)*cos(pitch),sin(angle)*cos(pitch),sin(-pitch));
+			return;
+		}
+		// set speed based on distance, for convenience
+		speed = clamp(distance2d(tracer)*0.03,30,50);
+		double x = distance2d(tracer)-tracer.radius, y = tracer.pos.z-pos.z;
+		double ds = speed**4-cursector.gravity*(cursector.gravity*x*x+2*y*speed**2);
+		if ( ds > 0 )
+		{
+			double a1, a2, high, low, maxht;
+			a1 = atan((speed**2+sqrt(ds))/(cursector.gravity*x));
+			a2 = atan((speed**2-sqrt(ds))/(cursector.gravity*x));
+			if ( a1 < a2 )
+			{
+				low = a1;
+				high = a2;
+			}
+			else
+			{
+				low = a2;
+				high = a1;
+			}
+			// use lower pitch unless it's zero or negative
+			if ( low <= 0 ) pitch = -high;
+			else pitch = -low;
+		}
+		else pitch = FRandom[Gibs](-60,15);
+		angle = angleto(tracer);
+		vel = speed*(cos(angle)*cos(pitch),sin(angle)*cos(pitch),sin(-pitch));
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( InStateSequence(CurState,FindState("Death")) ) return;
+		roll += rollvel;
+		sndtimer += rollvel;
+		if ( sndtimer >= 360. )
+		{
+			A_StartSound("skeleton/swing",CHAN_WEAPON,CHANF_OVERLAP,.7);
+			sndtimer -= 360.;
+		}
+		else if ( sndtimer < 0. )
+		{
+			A_StartSound("skeleton/swing",CHAN_WEAPON,CHANF_OVERLAP,.7);
+			sndtimer += 360.;
+		}
+		if ( (pos ~== lastpos) && (stuckcnt++ > 10) )
+		{
+			ClearBounce();
+			SetStateLabel("Death");
+		}
+		lastpos = pos;
+	}
+	action void A_HandleBounce()
+	{
+		Invoker.rollvel = FRandom[Gibs](50,100)*RandomPick[Gibs](-1,1);
+		A_StartSound("skeleton/melee",CHAN_BODY,CHANF_OVERLAP);
+		vel = (vel.unit()+(FRandom[Gibs](-0.1,0.1),FRandom[Gibs](-0.1,0.1),FRandom[Gibs](-0.1,0.1))).unit()*vel.length();
+		angle = FRandom[Gibs](0,360);
+	}
+	override bool CanCollideWith( Actor other, bool passive )
+	{
+		return (kicked || !(other is "Revenant"));
+	}
+	// REVolutionary REV skull kicking mechanics
+	// BETTER THAN BROOTL DUMM!!!
+	void BackInAction()
+	{
+		// detach from floor movement
+		bMOVEWITHSECTOR = false;
+		// restore all the goddamn bounce flags
+		bUSEBOUNCESTATE = true;
+		bBOUNCEONWALLS = true;
+		bBOUNCEONFLOORS = true;
+		bBOUNCEONCEILINGS = true;
+		bALLOWBOUNCEONACTORS = true;
+		bBOUNCEONACTORS = true;
+		bBOUNCEAUTOOFFFLOORONLY = true;
+		// restore missile flag, otherwise it won't bounce or hit anything
+		bMISSILE = true;
+		// restore NOBLOCKMAP
+		A_ChangeLinkFlags(true);
+		// back in action
+		kicked = true;
+		stuckcnt = 0;
+		A_StartSound("skeleton/melee",CHAN_BODY,CHANF_OVERLAP);
+		SetStateLabel("Spawn");
+	}
+	// tanaka, thai kikku
+	override bool Used( Actor user )
+	{
+		vel.xy = (cos(user.angle),sin(user.angle))*FRandom[Gibs](20,40);
+		vel.z = FRandom[Gibs](5,20);
+		BackInAction();
+		return true;
+	}
+	override int DamageMobj( Actor inflictor, Actor source, int damage, Name mod, int flags, double angle )
+	{
+		BackInAction();
+		vel.z += 1;
+		return Super.DamageMobj(inflictor,source,damage,mod,flags,angle);
+	}
+	States
+	{
+	Spawn:
+		AGIT A 1;
+		Wait;
+	Bounce:
+		AGIT A 0 A_HandleBounce();
+		Goto Spawn;
+	Death:
+		AGIT A -1
+		{
+			angle = FRandom[Gibs](0,360);
+			A_StopSound(CHAN_VOICE);
+			A_StopSound(CHAN_WEAPON);
+			bMOVEWITHSECTOR = true;
+			// disable NOBLOCKMAP so it can be used
+			A_ChangeLinkFlags(false);
+			// enable SHOOTABLE so it can be kicked
+			bSHOOTABLE = true;
+			A_SetRoll(RandomPick[Gibs](90,270)+Random[Gibs](-5,5));
+		}
+		Stop;
+	}
+}

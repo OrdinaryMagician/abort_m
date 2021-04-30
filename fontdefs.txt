@@ -1,0 +1,15 @@
+// Numbers only with shadow
+H_NUMBERS
+{
+	0 H_0
+	1 H_1
+	2 H_2
+	3 H_3
+	4 H_4
+	5 H_5
+	6 H_6
+	7 H_7
+	8 H_8
+	9 H_9
+	NOTRANSLATION 8
+}

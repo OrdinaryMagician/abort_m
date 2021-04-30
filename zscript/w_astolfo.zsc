@@ -1,0 +1,722 @@
+Class Bepis : Ammo
+{
+	Default
+	{
+		Tag "$T_BEPIS";
+		Inventory.PickupMessage "$I_BEPIS";
+		Inventory.Amount 1;
+		Inventory.MaxAmount 24;
+		Ammo.BackpackAmount 6;
+		Ammo.BackpackMaxAmount 48;
+		Ammo.DropAmount 1;
+		Inventory.Icon "BEPSC0";
+		Scale 0.15;
+	}
+	States
+	{
+	Spawn:
+		BEPS A -1;
+		Stop;
+	}
+}
+
+Class BepisPack : Bepis
+{
+	Default
+	{
+		Tag "$T_BEPISPACK";
+		Inventory.PickupMessage "$I_BEPISPACK";
+		Inventory.Amount 6;
+	}
+	States
+	{
+	Spawn:
+		BEPS B -1;
+		Stop;
+	}
+}
+
+Class AstolfoPuff : Actor
+{
+	Default
+	{
+		+NOGRAVITY;
+		+NOBlOCKMAP;
+		Scale 0.5;
+	}
+	States
+	{
+	Spawn:
+		DZMK ABCD 4;
+		Stop;
+	}
+}
+
+Class AstolfoCounter : Thinker
+{
+	int lastastolfo;
+	PlayerInfo p;
+
+	AstolfoCounter Create( PlayerInfo p )
+	{
+		ChangeStatNum(STAT_STATIC);
+		self.p = p;
+		return self;
+	}
+
+	static int NewAstolfo( PlayerInfo p )
+	{
+		let ct = ThinkerIterator.Create("AstolfoCounter",STAT_STATIC);
+		AstolfoCounter c;
+		while ( c = AstolfoCounter(ct.Next()) )
+			if ( c.p == p ) return ++c.lastastolfo;
+		c = new("AstolfoCounter").Create(p);
+		return ++c.lastastolfo;
+	}
+}
+
+Class Astolfo : Actor
+{
+	int gayfuel;
+	int rotation, timer;
+	int astolfonum;
+	int reachcnt;
+	int idletime;
+	Vector3 latchofs;
+	transient CVar candrop;
+
+	Default
+	{
+		Radius 8;
+		Height 8;
+		Speed 5;
+		MeleeRange 16;
+		Mass 10;
+		Health 200;
+		Scale 0.35;
+		PainChance 255;
+		MONSTER;
+		+THRUACTORS;
+		-COUNTKILL;
+		+FRIENDLY;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+LOOKALLAROUND;
+		+FORCEPAIN;
+		+QUICKTORETALIATE;
+		+NOBLOOD;
+	}
+	override string GetObituary( Actor victim, Actor inflictor, Name mod, bool playerattack )
+	{
+		String loc = StringTable.Localize("$O_ASTOLFO");
+		return String.Format(loc,GetTag());
+	}
+	override bool CanCollideWith( Actor other, bool passive )
+	{
+		return (other != master);
+	}
+	override int DamageMobj( Actor inflictor, Actor source, int damage, name mod, int flags, double angle )
+	{
+		if ( master && master.CountInv("AAAAAAAAA") ) damage = 0;
+		return Super.DamageMobj(inflictor,source,damage,mod,flags,angle);
+	}
+	action void A_CanReach()
+	{
+		if ( !target ) return;
+		if ( (distance2d(target) < meleerange) && abs(pos.z-target.pos.z) > meleerange )
+			invoker.reachcnt++;
+		else if ( !Warp(invoker,speed,flags:WARPF_TESTONLY) )
+			invoker.reachcnt++;
+		if ( invoker.reachcnt > 10 )
+		{
+			A_ClearTarget();
+			invoker.reachcnt = 0;
+		}
+	}
+	action void A_LatchOn( bool succ = false )
+	{
+		// cannot succ other astolfos
+		if ( tracer is 'Astolfo' )
+		{
+			vel = -(cos(angle)*8.0,sin(angle)*8.0,0);
+			vel.z = 8.0;
+			tracer = null;
+			target = null;
+			SetStateLabel("Spawn");
+			A_StartSound("succ/squeak");
+			return;
+		}
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+		Actor a;
+		while ( a = Actor(ti.Next()) )
+		{
+			if ( !a.bISMONSTER || a.bFRIENDLY || (a is 'PlayerPawn')
+				|| !a.IsVisible(invoker,false) )
+				continue;
+			a.target = invoker;
+		}
+		if ( !tracer || tracer.bKILLED )
+		{
+			Console.Printf("%s\c*: Gay.\c-",GetTag());
+			A_StartSound("misc/chat",CHAN_AUTO,CHANF_UI,attenuation:ATTN_NONE);
+			vel = -(cos(angle)*8.0,sin(angle)*8.0,0);
+			vel.z = 8.0;
+			tracer = null;
+			target = null;
+			SetStateLabel("Spawn");
+			A_StartSound("succ/squeak");
+			return;
+		}
+		invoker.gayfuel--;
+		double succheight = 0.4;
+		Warp(tracer,8.0+invoker.latchofs.x,invoker.latchofs.y,tracer.height*succheight+invoker.latchofs.z,0,WARPF_INTERPOLATE|WARPF_NOCHECKPOSITION);
+		angle = AngleTo(tracer);
+		if ( !succ ) return;
+		int dam = Random[Succ](2,3)*2;
+		if ( master && master.CountInv("AAAAAAAAA") ) dam *= dam;
+		if ( master ) tracer.DamageMobj(invoker,master,dam,'Succ');
+		else tracer.DamageMobj(invoker,invoker,dam,'Succ');
+		invoker.gayfuel--;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		if ( master && master.player )
+		{
+			astolfonum = AstolfoCounter.NewAstolfo(master.player);
+			if ( multiplayer )
+			{
+				String loc = StringTable.Localize("$T_ASTOLFONAME");
+				String order = StringTable.Localize("$T_NAMEORDER");
+				if ( order ~== "<" ) SetTag(String.Format(loc,astolfonum,master.player.GetUserName()));
+				else SetTag(String.Format(loc,master.player.GetUserName(),astolfonum));
+			}
+			else
+			{
+				String loc = StringTable.Localize("$T_ASTOLFONAMELONER");
+				SetTag(String.Format(loc,astolfonum));
+			}
+		}
+		else
+		{
+			astolfonum = AstolfoCounter.NewAstolfo(null);
+			String loc = StringTable.Localize("$T_ASTOLFONAMELONER");
+			SetTag(String.Format(loc,astolfonum));
+		}
+		tracer = null;
+		gayfuel = 1500;
+		rotation = 0;
+		timer = 0;
+		floorclip = -6;
+		A_StartSound("succ/music",CHAN_VOICE,CHANF_LOOP);
+		// alter behavior in DM
+		if ( !deathmatch ) return;
+		if ( master && master.player ) SetFriendPlayer(master.player);
+		else bFRIENDLY = false;
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		bDROPOFF = abort_friendliestdropoff;
+		if ( InStateSequence(CurState,ResolveState("Death")) ) return;
+		if ( master && master.CountInv("AAAAAAAAA") ) speed = 15;
+		else speed = 5;
+		if ( gayfuel <= 0 )
+		{
+			SetStateLabel("Death");
+			return;
+		}
+		floorclip++;
+		timer++;
+		if ( timer > 6 )
+		{
+			floorclip = -6;
+			timer = 0;
+			rotation++;
+			if ( rotation > 15 ) rotation = 0;
+		}
+		if ( !target && master && ((Distance2D(master) > 1000) || !CheckSight(master)) )
+		{
+			idletime++;
+			if ( idletime > 300 )
+			{
+				Teleport(master.pos,master.angle,TELF_SOURCEFOG|TELF_DESTFOG);
+				idletime = 0;
+			}
+		}
+		else idletime = 0;
+		switch ( rotation )
+		{
+		case 0:
+		case 2:
+		case 4:
+		case 6:
+			A_SetScale(0.35,0.35);
+			A_SetRoll(0);
+			break;
+		case 1:
+		case 3:
+		case 5:
+		case 7:
+			A_SetScale(-0.35,0.35);
+			A_SetRoll(0);
+			break;
+		case 8:
+		case 10:
+		case 12:
+		case 14:
+			A_SetScale(-0.35,0.35);
+			A_SetRoll(180);
+			break;
+		case 9:
+		case 11:
+		case 13:
+		case 15:
+			A_SetScale(0.35,0.35);
+			A_SetRoll(180);
+			break;
+		}
+	}
+	action void A_AstolfoLook()
+	{
+		target = null;
+		// check for players in DM
+		if ( deathmatch )
+		{
+			for ( int i=0; i<MAXPLAYERS; i++ )
+			{
+				if ( !playeringame[i] ) continue;
+				Actor a = players[i].mo;
+				if ( (a == master) || (a.health <= 0) )
+					continue;
+				if ( Distance2D(a) > 1000 ) continue;
+				target = a;
+				break;
+			}
+			if ( target && !InStateSequence(CurState,FindState("See")) )
+				SetStateLabel("See");
+		}
+		else A_Look();
+		// behave as normal otherwise
+	}
+	action void A_AstolfoChase()
+	{
+		if ( !deathmatch )
+		{
+			A_Chase();
+			return;
+		}
+		if ( Random[Succ]() < 30 ) A_AstolfoLook();
+		if ( !target || (target.health <= 0) || !target.bSHOOTABLE )
+		{
+			SetStateLabel("Idle");
+			return;
+		}
+		FaceMovementDirection();
+		ReactionTime = 0;
+		// succ
+		if ( CheckMeleeRange() )
+		{
+			SetStateLabel("Melee");
+			return;
+		}
+		// chase
+		if ( !MonsterMove() )
+		{
+			NewChaseDir();
+			FaceMovementDirection();
+		}
+	}
+	States
+	{
+	Spawn:
+		ASTL A 10;
+		ASTL A 1 A_JumpIf(pos.z <= floorz+1,"Idle");
+		Wait;
+	Idle:
+		ASTL A 1 { A_AstolfoLook(); A_Wander(); invoker.gayfuel--; }
+		Wait;
+	See:
+		ASTL A 1 { A_AstolfoChase(); A_CanReach(); invoker.gayfuel--; }
+		Wait;
+	Pain:
+		ASTL A 0 A_StartSound("succ/squeak");
+		ASTL A 0 A_JumpIf(tracer,"Succ");
+		Goto See;
+	Melee:
+		ASTL A 0
+		{
+			tracer = target;
+			A_StartSound("succ/squeak");
+			invoker.latchofs = (FRandom[Succ](-1,1),FRandom[Succ](-1,1),FRandom[Succ](-1,1)).unit()*FRandom[Succ](4.0,8.0);
+		}
+	Succ:
+		ASTL A 1 A_LatchOn(true);
+		ASTL AAAA 1 A_LatchOn();
+		Loop;
+	Death:
+		ASTL A 120
+		{
+			invoker.floorclip = 0;
+			A_StopSound(CHAN_VOICE);
+			A_SetScale(0.35,0.35);
+			A_SetRoll(180);
+			double ang = FRandom[Succ](0,360);
+			vel = (cos(ang)*8.0,sin(ang)*8.0,8.0);
+			A_StartSound("succ/squeak");
+		}
+		TNT1 AAA 1
+		{
+			for ( int i=0; i<8; i++ )
+				A_SpawnItemEx("AstolfoPuff",FRandom[Succ](-6,6),FRandom[Succ](-6,6),FRandom[Succ](0,12),FRandom[Succ](-1,1),FRandom[Succ](-1,1),FRandom[Succ](0,2));
+		}
+		Stop;
+	}
+}
+
+Class ProjectileAstolfo : Actor
+{
+	bool hasbounced;
+	double rollvel;
+	int stuckcnt;
+	Vector3 lastpos;
+	Default
+	{
+		Obituary "$O_ASTOLFOHIT";
+		Radius 8;
+		Height 8;
+		Speed 40;
+		DamageFunction 1;
+		BounceType "Doom";
+		BounceFactor 0.5;
+		PROJECTILE;
+		-NOGRAVITY;
+		+USEBOUNCESTATE;
+		+FORCEPAIN;
+		+BOUNCEONACTORS;
+		-BOUNCEAUTOOFF;
+		+BOUNCEAUTOOFFFLOORONLY;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+INTERPOLATEANGLES;
+		Scale 0.35;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		hasbounced = false;
+		stuckcnt = 0;
+		rollvel = FRandom[Succ](20,60)*RandomPick[Succ](-1,1);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( InStateSequence(CurState,FindState("Death")) ) return;
+		roll += rollvel;
+		if ( (pos ~== lastpos) && (stuckcnt++ > 10) )
+		{
+			ClearBounce();
+			SetStateLabel("Death");
+		}
+		lastpos = pos;
+	}
+	action void A_HandleBounce()
+	{
+		bHITOWNER = true;
+		Invoker.rollvel = FRandom[Succ](20,60)*RandomPick[Succ](-1,1)*(vel.length()/speed);
+		A_StartSound("succ/squeak");
+		// dramatically slow down on first bounce
+		if ( !invoker.hasbounced ) vel = vel.unit()*8;
+		invoker.hasbounced = true;
+		vel = (vel.unit()+(FRandom[Pea](-0.1,0.1),FRandom[Pea](-0.1,0.1),FRandom[Pea](-0.1,0.1))).unit()*vel.length();
+	}
+	States
+	{
+	Spawn:
+		ASTL A -1;
+		Stop;
+	Bounce:
+		ASTL A 0 A_HandleBounce();
+		Goto Spawn;
+	Death:
+		TNT1 A 1
+		{
+			let a = Spawn("Astolfo",pos);
+			a.master = target;
+			a.vel.z += 8.0;
+		}
+		Stop;
+	}
+}
+
+Class Afterimage : Actor
+{
+	void A_SetFrame()
+	{
+		if ( !master ) return;
+		sprite = master.sprite;
+		frame = master.frame;
+		scale = master.scale;
+		translation = master.translation;
+		angle = master.angle;
+		roll = master.roll;
+	}
+
+	Default
+	{
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+	}
+
+	States
+	{
+	Spawn:
+		TNT1 A 0 NoDelay A_SetFrame;
+		"####" "#" 1 A_FadeOut(0.05);
+		Wait;
+	}
+}
+
+Class VeryFastProjectileAstolfo : Actor
+{
+	double rollvel, sndtimer;
+	int stuckcnt;
+	Vector3 lastpos;
+	Default
+	{
+		Obituary "$O_ASTOLFOFASTHIT";
+		Radius 8;
+		Height 8;
+		Speed 60;
+		DamageFunction clamp(vel.length()*FRandom[Succ](1.2,2.4),0,30);
+		BounceType "Doom";
+		BounceFactor 0.75;
+		PROJECTILE;
+		-NOGRAVITY;
+		+RIPPER;
+		+FORCEPAIN;
+		+USEBOUNCESTATE;
+		+BOUNCEONACTORS;
+		-BOUNCEAUTOOFF;
+		+BOUNCEAUTOOFFFLOORONLY;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+INTERPOLATEANGLES;
+		Scale 0.35;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		rollvel = FRandom[Succ](80,160)*RandomPick[Succ](-1,1);
+		sndtimer = 0;
+		stuckcnt = 0;
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( InStateSequence(CurState,FindState("Death")) ) return;
+		roll += rollvel;
+		sndtimer += rollvel;
+		if ( sndtimer >= 360. )
+		{
+			if ( vel.xy.length() >= 20 )
+				A_StartSound("skeleton/swing",CHAN_WEAPON,CHANF_OVERLAP,0.7);
+			sndtimer -= 360.;
+		}
+		else if ( sndtimer < 0. )
+		{
+			if ( vel.xy.length() >= 20 )
+				A_StartSound("skeleton/swing",CHAN_WEAPON,CHANF_OVERLAP,0.7);
+			sndtimer += 360.;
+		}
+		if ( vel.xy.length() < 20 )
+		{
+			sprite = GetSpriteIndex('ASTL');
+			bRIPPER = false;
+		}
+		else
+		{
+			sprite = GetSpriteIndex('ASTF');
+			bRIPPER = true;
+			let s = Spawn("Afterimage",pos);
+			s.master = self;
+		}
+		if ( (pos ~== lastpos) && (stuckcnt++ > 10) )
+		{
+			ClearBounce();
+			SetStateLabel("Death");
+		}
+		lastpos = pos;
+	}
+	action void A_HandleBounce()
+	{
+		bHITOWNER = true;
+		Invoker.rollvel = FRandom[Succ](80,160)*RandomPick[Guns](-1,1)*(vel.length()/speed);
+		vel = (vel.unit()+(FRandom[Succ](-0.4,0.4),FRandom[Succ](-0.4,0.4),FRandom[Succ](-0.4,0.4))).unit()*vel.length();
+		A_StartSound("succ/squeak",CHAN_BODY,CHANF_DEFAULT,(vel.length()/speed));
+	}
+	States
+	{
+	Spawn:
+		#### A 1;
+		Wait;
+	Bounce:
+		#### A 0 A_HandleBounce();
+		Goto Spawn;
+	Death:
+		ASTF A 0 { bMOVEWITHSECTOR = true; }
+		ASTL A 30;
+		TNT1 A 1
+		{
+			let a = Spawn("Astolfo",pos);
+			a.master = target;
+			a.vel.z += 8.0;
+		}
+		Stop;
+	}
+}
+
+Class AstolfoWeapon : AbortWeapon
+{
+	bool drank;
+
+	action void A_GiveBepis()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		if ( weap.Ammo1.Amount <= 0 ) return;
+		weap.DepleteAmmo(weap.bAltFire,true,1);
+	}
+	action void A_ThrowAstolfo()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		Vector3 x, y, z;
+		[x, y, z] = abort_CoordUtil.GetAxes(pitch,angle,roll);
+		Vector3 origin = Vec2OffsetZ(0,0,player.viewz)+10.0*x+4.0*y-0.6*z;
+		[x, y, z] = abort_CoordUtil.GetAxes(BulletSlope(),angle,roll);
+		let p = Spawn("ProjectileAstolfo",origin);
+		Vector3 dir = (x + y*FRandom[Succ](-0.05,0.05) + z*FRandom[Succ](-0.05,0.05)).unit();
+		p.angle = atan2(dir.y,dir.x);
+		p.pitch = -asin(dir.z);
+		p.vel = (cos(p.angle)*cos(p.pitch),sin(p.angle)*cos(p.pitch),-sin(p.pitch))*p.speed*FRandom[Succ](0.5,1.5)+vel;
+		p.target = self;
+	}
+	action void A_ThrowVeryFastAstolfo()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		Vector3 x, y, z;
+		[x, y, z] = abort_CoordUtil.GetAxes(pitch,angle,roll);
+		Vector3 origin = Vec2OffsetZ(0,0,player.viewz)+10.0*x+4.0*y-0.6*z;
+		[x, y, z] = abort_CoordUtil.GetAxes(BulletSlope(),angle,roll);
+		A_StartSound("pellet/throwbox",CHAN_WEAPON);
+		let p = Spawn("VeryFastProjectileAstolfo",origin);
+		Vector3 dir = (x + y*FRandom[Succ](-0.05,0.05) + z*FRandom[Succ](-0.05,0.05)).unit();
+		p.angle = atan2(dir.y,dir.x);
+		p.pitch = -asin(dir.z);
+		p.vel = (cos(p.angle)*cos(p.pitch),sin(p.angle)*cos(p.pitch),-sin(p.pitch))*p.speed*FRandom[Succ](0.5,1.5)+vel;
+		p.target = self;
+	}
+	action void A_DrinkBepis()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		if ( weap.Ammo2.Amount <= 0 ) return;
+		if ( !weap.DepleteAmmo(weap.bAltFire,true,1) ) return;
+		A_StartSound("succ/bepis",CHAN_WEAPON);
+		GiveBody(20,SpawnHealth()*2);
+		GiveInventory("ArmorBonus",20);
+		invoker.drank = true;
+	}
+	Default
+	{
+		Tag "$T_ASTOLFO";
+		Inventory.PickupMessage "$I_ASTOLFO";
+		Weapon.SlotNumber 6;
+		Weapon.SelectionOrder 50;
+		Weapon.AmmoGive 3;
+		Weapon.AmmoType "Bepis";
+		Weapon.AmmoType2 "Bepis";
+		Weapon.AmmoUse 3;
+		Weapon.MinSelectionAmmo1 3;
+		Weapon.AmmoUse2 1;
+		AbortWeapon.KickTics 10;
+		AbortWeapon.KickX 4;
+		AbortWeapon.KickY 3;
+		AbortWeapon.ThrowName "$W_ASTOLFO";
+		Scale 0.35;
+	}
+	States
+	{
+	Spawn:
+		ASTL A -1;
+		Stop;
+	Ready:
+		ASTL B 1 A_WeaponReady(WRF_ALLOWRELOAD);
+		Wait;
+	Fire:
+		ASTL B 1 A_JumpIf(CountInv("AAAAAAAAA"),"FastFire");
+		ASTL B 0 A_JumpIfNoAmmo("Ready");
+		ASTL BBBBBB 1 A_WeaponOffset(0,16,WOF_ADD|WOF_INTERPOLATE);
+		ASTL B 0 A_GiveBepis();
+		TNT1 A 10 A_WeaponOffset(60,80);
+		PELB BBBB 1 A_WeaponOffset(-8,-12,WOF_ADD|WOF_INTERPOLATE);
+		PELB B 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		PELB BC 1 A_WeaponOffset(-16,-8,WOF_ADD|WOF_INTERPOLATE);
+		PELB C 0 A_ThrowAstolfo();
+		PELB CC 1 A_WeaponOffset(-16,-8,WOF_ADD|WOF_INTERPOLATE);
+		PELB CCDD 1 A_WeaponOffset(-12,16,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 10;
+		TNT1 A 0 A_WeaponOffset(0,128);
+		ASTL BBBBBB 1 A_WeaponOffset(0,-16,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	FastFire:
+		ASTF BBB 1 A_WeaponOffset(0,32,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 5 A_WeaponOffset(60,80);
+		PELF BB 1 A_WeaponOffset(-16,-24,WOF_ADD|WOF_INTERPOLATE);
+		PELF B 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		PELF C 1 A_WeaponOffset(-32,-16,WOF_ADD|WOF_INTERPOLATE);
+		PELF C 0 A_ThrowVeryFastAstolfo();
+		PELF C 1 A_WeaponOffset(-32,-16,WOF_ADD|WOF_INTERPOLATE);
+		PELF DD 1 A_WeaponOffset(-24,48,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 5;
+		TNT1 A 0 A_WeaponOffset(0,128);
+		ASTF BBB 1 A_WeaponOffset(0,-32,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	AltFire:
+		ASTL B 0 { invoker.drank = false; }
+		ASTL BBBBBBB 1 A_WeaponOffset(0,16,WOF_ADD|WOF_INTERPOLATE);
+		ASTL B 10;
+		ASTL B 30 A_StartSound("succ/open",CHAN_WEAPON);
+	AltHold:
+		ASTL B 10;
+		ASTL B 10 A_DrinkBepis();
+		ASTL B 0 A_Refire();
+	AltRelease:
+		ASTL B 10
+		{
+			if ( !invoker.drank ) return;
+			A_StartSound("succ/bepisend",CHAN_VOICE);
+			A_SetTics(40);
+		}
+		ASTL BBBBBBB 1 A_WeaponOffset(0,-16,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	Select:
+		ASTL B 1 A_Raise(12);
+		Wait;
+	Deselect:
+		ASTL B 1 A_Lower(12);
+		Wait;
+	}
+}

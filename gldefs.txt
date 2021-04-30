@@ -1,0 +1,387 @@
+hardwareshader postprocess scene
+{
+	Name "speedlines-layer1"
+	Shader "shaders/glsl/speedlines-black.frag" 330
+	Uniform float Timer
+	Uniform float Fade
+}
+
+hardwareshader postprocess scene
+{
+	Name "speedlines-layer2"
+	Shader "shaders/glsl/speedlines-white.frag" 330
+	Uniform float Timer
+	Uniform float Fade
+}
+
+hardwareshader postprocess scene
+{
+	Name "zoom-blur"
+	Shader "shaders/glsl/zoomblur.frag" 330
+	Uniform float Fade
+	Uniform float Str
+}
+
+hardwareshader RAVFA0
+{
+	Shader "shaders/glsl/raveparty.frag" 330
+}
+hardwareshader RAVFB0
+{
+	Shader "shaders/glsl/raveparty.frag" 330
+}
+hardwareshader RAVGB0
+{
+	Shader "shaders/glsl/raveparty.frag" 330
+}
+hardwareshader h_abar4
+{
+	Shader "shaders/glsl/fury.frag" 330
+	Texture fury "graphics/fury.png"
+}
+hardwareshader h_hbar4
+{
+	Shader "shaders/glsl/fury.frag" 330
+	Texture fury "graphics/fury.png"
+}
+
+object LewdDetonation
+{
+	frame MISLB { light ROCKET_X1 }
+	frame MISLC { light ROCKET_X2 }
+	frame MISLD { light ROCKET_X3 }
+}
+object PelletBox
+{
+	frame MISLB { light ROCKET_X1 }
+	frame MISLC { light ROCKET_X2 }
+	frame MISLD { light ROCKET_X3 }
+}
+object TileClusterBomb
+{
+	frame MISLB { light ROCKET_X1 }
+	frame MISLC { light ROCKET_X2 }
+	frame MISLD { light ROCKET_X3 }
+}
+object SmallTile
+{
+	frame MISLB { light ROCKET_X1 }
+	frame MISLC { light ROCKET_X2 }
+	frame MISLD { light ROCKET_X3 }
+}
+object SeekingPowerDrill
+{
+	frame MISLB { light ROCKET_X1 }
+	frame MISLC { light ROCKET_X2 }
+	frame MISLD { light ROCKET_X3 }
+}
+
+flickerlight SLTROCKET_X1
+{
+	color 0.8 1.0 0.9
+	size 96
+	secondarySize 108
+	chance 0.3
+	attenuate 1
+}
+
+flickerlight SLTROCKET_X2
+{
+	color 0.3 0.5 0.4
+	size 120
+	secondarySize 132
+	chance 0.3
+	attenuate 1
+}
+
+flickerlight SLTROCKET_X3
+{
+	color 0.2 0.3 0.2
+	size 144
+	secondarySize 156
+	chance 0.3
+	attenuate 1
+}
+
+object SaltBlast
+{
+	frame MSLTA { light SLTROCKET_X1 }
+	frame MSLTB { light SLTROCKET_X2 }
+	frame MSLTC { light SLTROCKET_X3 }
+}
+
+pointlight REDHEART
+{
+	color 0.5 0.0 0.0
+	size 64
+	attenuate 1
+}
+pointlight SMOLHEART
+{
+	color 0.5 0.0 0.0
+	size 8
+	attenuate 1
+}
+
+object HeadpatHalo
+{
+	frame HARTA { light REDHEART }
+}
+object Hearty
+{
+	frame HARTA { light SMOLHEART }
+}
+
+object TitleFaceXplod
+{
+	frame DEXPA { light ROCKET_X1 }
+	frame DEXPB { light ROCKET_X2 }
+	frame DEXPC { light ROCKET_X3 }
+}
+
+object OuchXplod
+{
+	frame DEXPA { light ROCKET_X1 }
+	frame DEXPB { light ROCKET_X2 }
+	frame DEXPC { light ROCKET_X3 }
+}
+
+object OuchXplodBig
+{
+	frame DEXPA { light ROCKET_X1 }
+	frame DEXPB { light ROCKET_X2 }
+	frame DEXPC { light ROCKET_X3 }
+}
+
+object OuchXplodLess
+{
+	frame DEXPA { light ROCKET_X1 }
+	frame DEXPB { light ROCKET_X2 }
+	frame DEXPC { light ROCKET_X3 }
+}
+
+pointlight SmallItemLight
+{
+	color 0.3 0.3 0.3
+	size 16
+	offset 0 4 0
+	attenuate 1
+}
+
+pointlight MidItemLight
+{
+	color 0.5 0.5 0.5
+	size 32
+	offset 0 6 0
+	attenuate 1
+}
+pointlight BigItemLight
+{
+	color 0.7 0.7 0.7
+	size 64
+	offset 0 8 0
+	attenuate 1
+}
+pointlight BigFloatItemLight
+{
+	color 0.7 0.7 0.7
+	size 64
+	offset 0 25 0
+	attenuate 1
+}
+
+pointlight ThonkGrenadeLight
+{
+	color 1.0 1.0 0.0
+	size 32
+	offset 0 8 0
+	attenuate 1
+}
+pointlight BigThonkGrenadeLight
+{
+	color 1.0 1.0 0.0
+	size 64
+	offset 0 8 0
+	attenuate 1
+}
+object ThonkGrenade
+{
+	frame THNKA { light ThonkGrenadeLight }
+}
+object BigThonkGrenade
+{
+	frame THNKA { light BigThonkGrenadeLight }
+}
+
+pointlight RaveLightR
+{
+	color 0.5 0.0 0.0
+	size 32
+	attenuate 1
+}
+pointlight RaveLightY
+{
+	color 0.5 0.5 0.0
+	size 32
+	attenuate 1
+}
+pointlight RaveLightG
+{
+	color 0.0 0.5 0.0
+	size 32
+	attenuate 1
+}
+pointlight RaveLightC
+{
+	color 0.0 0.5 0.5
+	size 32
+	attenuate 1
+}
+pointlight RaveLightB
+{
+	color 0.0 0.0 0.5
+	size 32
+	attenuate 1
+}
+pointlight RaveLightM
+{
+	color 0.5 0.0 0.5
+	size 32
+	attenuate 1
+}
+object RaveLaserTrail
+{
+	frame RLS1 { light RaveLightR }
+	frame RLS2 { light RaveLightY }
+	frame RLS3 { light RaveLightG }
+	frame RLS4 { light RaveLightC }
+	frame RLS5 { light RaveLightB }
+	frame RLS6 { light RaveLightM }
+}
+
+pulselight SauceLight
+{
+	color 1.0 0.7 0.0
+	size 60
+	secondarySize 64
+	interval 2.0
+	offset 0 16 0
+	attenuate 1
+}
+object SauceSphere
+{
+	frame SAUC { light SauceLight }
+}
+
+pulselight PantsuLight
+{
+	color 1.0 0.0 0.0
+	size 60
+	secondarySize 64
+	interval 2.0
+	offset 0 16 0
+	attenuate 1
+}
+object ShimapanSphere
+{
+	frame SHIM { light PantsuLight }
+}
+
+pulselight BlurryLight
+{
+	color 0.1 0.5 0.1
+	size 60
+	secondarySize 64
+	interval 2.0
+	offset 0 16 0
+	attenuate 1
+}
+object BlurrySphere
+{
+	frame BLUR { light BlurryLight }
+}
+
+pointlight PANTS1
+{
+	color 0.0 0.3 0.0
+	size 40
+	attenuate 1
+	offset 0 10 0
+}
+pointlight PANTS2
+{
+	color 0.0 0.3 0.0
+	size 30
+	attenuate 1
+	offset 0 10 0
+}
+object ComfyPants
+{
+	frame PAN1A { light PANTS1 }
+	frame PAN1B { light PANTS2 }
+}
+
+pointlight SHORTS1
+{
+	color 0.0 0.0 0.3
+	size 40
+	attenuate 1
+	offset 0 10 0
+}
+pointlight SHORTS2
+{
+	color 0.0 0.0 0.3
+	size 30
+	attenuate 1
+	offset 0 10 0
+}
+object ComfierPants
+{
+	frame PAN2A { light SHORTS1 }
+	frame PAN2B { light SHORTS2 }
+}
+
+pulselight BrightsphereLight
+{
+	color 0.5 0.35 0.15
+	size 60
+	secondarySize 64
+	interval 2.0
+	offset 0 16 0
+	attenuate 1
+}
+pulselight BrightsphereLight2
+{
+	color 0.6 0.5 0.2
+	size 60
+	secondarySize 64
+	interval 2.0
+	attenuate 1
+}
+pulselight BrightsphereLight3
+{
+	color 0.4 0.2 0.1
+	size 240
+	secondarySize 256
+	interval 2.0
+	attenuate 1
+}
+object BrightSphere
+{
+	frame BRIT { light BrightsphereLight }
+}
+object EffectBrightSphere
+{
+	frame BRIT { light BrightsphereLight2 }
+	frame BRITB { light BrightsphereLight3 }
+}
+
+Skybox TITLESKY fliptop
+{
+	SKY1_W
+	SKY1_N
+	SKY1_E
+	SKY1_S
+	SKY1_T
+	SKY1_B
+}

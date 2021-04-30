@@ -1,0 +1,830 @@
+Class ToolEnergy : Ammo
+{
+	int regenct;
+	Default
+	{
+		Inventory.Amount 0;
+		Inventory.MaxAmount 100;
+		Ammo.BackpackAmount 0;
+		Ammo.BackpackMaxAmount 100;
+		Inventory.Icon "TIMAC0";
+		+INVENTORY.UNDROPPABLE;
+		+INVENTORY.UNTOSSABLE;
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !Owner || !Owner.FindInventory("ToolTim") ) return;
+		regenct++;
+		if ( Owner.CountInv("AAAAAAAAA") || (regenct > 10) )
+		{
+			regenct = 0;
+			Amount = Min(MaxAmount,Amount+1);
+		}
+	}
+}
+
+Class SeekingPowerDrill : Actor
+{
+	override void Tick()
+	{
+		Super.Tick();
+		roll += 30;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		A_StartSound("tim/drill",CHAN_VOICE,CHANF_LOOP);
+	}
+	Default
+	{
+		Radius 8;
+		Height 8;
+		Speed 50;
+		Damage 30;
+		Scale 0.15;
+		PROJECTILE;
+		+ROLLSPRITE;
+		+SEEKERMISSILE;
+		+INTERPOLATEANGLES;
+	}
+	States
+	{
+	Spawn:
+		TOOL C 1
+		{
+			A_SeekerMissile(0,5);
+			let a = Spawn("Afterimage",pos);
+			a.master = invoker;
+		}
+		Wait;
+	Death:
+		MISL A 0
+		{
+			A_SetScale(1.0);
+			A_StopSound(CHAN_VOICE);
+			A_StartSound("weapons/rocklx");
+			A_Explode(30,120);
+			A_AlertMonsters();
+			bROLLSPRITE = false;
+			for ( int i=0; i<6; i++ ) Spawn("DetonationArm",pos);
+		}
+		MISL BBBBCCCDD 1 Bright;
+		Stop;
+	}
+}
+
+Class PowerDrill : Actor
+{
+	double phase, phase2, spinphase, orbitspeed, spinspeed, spreadspeed;
+	Vector3 ofs;
+	action void A_SafeExplode( int damage, int distance )
+	{
+		BlockThingsIterator bi = BlockThingsIterator.Create(invoker,distance);
+		while ( bi.Next() )
+		{
+			Actor a = bi.Thing;
+			if ( !a || !a.bSHOOTABLE || (a == invoker) || (a == target)
+				|| (target && target.player && a.player && (a.player == target.player)) )
+				continue;
+			a.DamageMobj(invoker,target,damage,'Melee');
+			a.vel += Vec3To(a).unit()*(10.*damage)/a.mass;
+			a.vel.z += (5.*damage)/a.mass;
+		}
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !target || (target.health<=0) )
+		{
+			Destroy();
+			return;
+		}
+		Vector3 orbitdir = (cos(phase),sin(phase),0);
+		SetOrigin(target.pos+(0,0,25)+orbitdir*phase2,true);
+		roll = spinphase;
+		angle = phase;
+		phase += orbitspeed;
+		phase2 += spreadspeed;
+		spinphase += spinspeed;
+		spinspeed *= 1.02;
+		spreadspeed *= 1.01;
+		orbitspeed *= 1.02;
+		if ( phase2 > 500.0 ) Destroy();
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		orbitspeed = 1.0;
+		spinspeed = 4.0;
+		spreadspeed = 2.0;
+		phase = args[0];
+		phase2 = 10;
+		spinphase = args[0];
+		A_StartSound("tim/drill",CHAN_BODY,CHANF_LOOP);
+	}
+	override void OnDestroy()
+	{
+		A_StopSound(CHAN_BODY);
+		Super.OnDestroy();
+	}
+	Default
+	{
+		Scale 0.05;
+		+ROLLSPRITE;
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+		+INTERPOLATEANGLES;
+	}
+	States
+	{
+	Spawn:
+		TOOL C 1
+		{
+			A_SafeExplode(1,8);
+			let a = Spawn("Afterimage",pos);
+			a.master = invoker;
+		}
+		Wait;
+	}
+}
+
+Class TimGroundMallets2 : TimGroundMallets
+{
+	States
+	{
+	Spawn:
+		TNT1 A 5;
+		TNT1 AA 1 A_SeekerMissile(0,30,SMF_LOOK);
+		TNT1 A 1 A_SummonMallet(true);
+		TNT1 A 1 A_Countdown();
+		Goto Spawn+1;
+	}
+}
+
+Class TimGroundMallet : Actor
+{
+	Default
+	{
+		Radius 30;
+		Height 60;
+		Scale 0.25;
+		-SOLID;
+		+FLOORHUGGER;
+		+SPECIALFLOORCLIP;
+		+NOEXTREMEDEATH;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		Floorclip = 60;
+	}
+	void A_SpawnDirt()
+	{
+		master = Spawn("DirtClump",pos);
+	}
+	void A_Impale()
+	{
+		bool hitsomething = false;
+		BlockThingsIterator bt = BlockThingsIterator.Create(self);
+		while ( bt.Next() )
+		{
+			let a = bt.Thing;
+			if ( !a ) continue;
+			if ( Distance2D(a) > (radius+a.radius) ) continue;
+			if ( (a.pos.z+a.height < pos.z) || (a.pos.z > pos.z+30) ) continue;
+			if ( !a.bSHOOTABLE ) continue;
+			if ( (a == self) || (a == target) || (target && target.master && (a == target.master)) ) // also avoid hurting tim's summoner
+				continue;
+			int dmg = int(Random[Tim](3,5)**3);
+			int newdam = a.DamageMobj(self,target,dmg,'Crush');
+			a.TraceBleed(newdam>0?newdam:dmg,self);
+			a.vel.xy += Vec2To(a).unit()*5.;
+			a.vel.z += 15.;
+			a.bBLASTED = true;
+			if ( !a.bNOBLOOD ) hitsomething = true;
+		}
+		if ( hitsomething ) A_StartSound("tile/hit",CHAN_BODY,CHANF_DEFAULT,0.5);
+		else A_StartSound("tile/wall",CHAN_BODY,CHANF_DEFAULT,0.5);
+	}
+	States
+	{
+	Spawn:
+		TNT1 A 0 NoDelay A_SetTics(Random[Tim](0,8));
+		TOOL D 0 A_SpawnDirt();
+		TOOL D 1 A_JumpIf(RaiseMobj(20),1);
+		Wait;
+		TOOL D 30
+		{
+			A_QuakeEx(3,3,3,10,0,300,"",QF_RELATIVE|QF_SCALEDOWN,falloff:200);
+			A_Impale();
+		}
+		TOOL D 1 A_JumpIf(SinkMobj(4),1);
+		Wait;
+		TOOL D 0 { if ( master ) master.Destroy(); }
+		Stop;
+	}
+}
+
+Class TimGroundMallets : Actor
+{
+	action void A_SummonMallet( bool nostop = false )
+	{
+		if ( !nostop && (!tracer || (tracer.Health<=0)) )
+		{
+			Destroy();
+			return;
+		}
+		let s = Spawn("TimGroundMallet",pos+(FRandom[Tim](-8.0,8.0),FRandom[Tim](-8.0,8.0),0));
+		s.target = target;
+	}
+	Default
+	{
+		Radius 1;
+		Height 1;
+		Speed 20;
+		PROJECTILE;
+		+FLOORHUGGER;
+		+SEEKERMISSILE;
+		+NOCLIP;
+		ReactionTime 30;
+	}
+	States
+	{
+	Spawn:
+		TNT1 AA 1 A_SeekerMissile(0,30);
+		TNT1 A 1 A_SummonMallet();
+		TNT1 A 1 A_Countdown();
+		Loop;
+	Death:
+		TNT1 A 1;
+		Stop;
+	}
+}
+
+Class TimOrbitHammer : Actor
+{
+	double phase, spinphase, orbitspeed, spinspeed;
+	Vector3 ofs;
+	action void A_SafeExplode( int damage, int distance )
+	{
+		BlockThingsIterator bi = BlockThingsIterator.Create(invoker,distance);
+		while ( bi.Next() )
+		{
+			Actor a = bi.Thing;
+			if ( !a || !a.bSHOOTABLE || (a == invoker) || (a == master) || (a == target) ||
+				(target && target.player && a.player && (a.player == target.player)) )
+				continue;
+			a.DamageMobj(invoker,master,damage,'Melee');
+			a.vel += Vec3To(a).unit()*(10.*damage)/a.mass;
+			a.vel.z += (5.*damage)/a.mass;
+		}
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !master || (master.health<=0) )
+		{
+			Destroy();
+			return;
+		}
+		Vector3 orbitdir = (cos(phase),sin(phase),0);
+		SetOrigin(master.pos+(0,0,5)+orbitdir*30,true);
+		roll = sin(spinphase)*30-30;
+		angle = phase+90;
+		phase += orbitspeed;
+		spinphase += spinspeed;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		orbitspeed = 4.0;
+		spinspeed = 20.0;
+		phase = args[0];
+		spinphase = args[0];
+	}
+	Default
+	{
+		Scale 0.1;
+		+WALLSPRITE;
+		+ROLLSPRITE;
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+		+INTERPOLATEANGLES;
+	}
+	States
+	{
+	Spawn:
+		TOOL A 4 A_SafeExplode(10,5);
+		Wait;
+	}
+}
+
+Class TimOrbitWrench : Actor
+{
+	double phase, spinphase, orbitspeed, spinspeed;
+	Vector3 ofs;
+	action void A_SafeExplode( int damage, int distance )
+	{
+		BlockThingsIterator bi = BlockThingsIterator.Create(invoker,distance);
+		while ( bi.Next() )
+		{
+			Actor a = bi.Thing;
+			if ( !a || !a.bSHOOTABLE || (a == invoker) || (a == master) || (a == target) ||
+				(target && target.player && a.player && (a.player == target.player)) )
+				continue;
+			a.DamageMobj(invoker,master,damage,'Melee');
+			a.vel += Vec3To(a).unit()*(10.*damage)/a.mass;
+			a.vel.z += (5.*damage)/a.mass;
+		}
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !master || (master.health<=0) )
+		{
+			Destroy();
+			return;
+		}
+		Vector3 orbitdir = (cos(phase),sin(phase),0);
+		SetOrigin(master.pos+(0,0,15)+orbitdir*80,true);
+		roll = sin(spinphase)*720;
+		angle = phase;
+		phase += orbitspeed;
+		spinphase += spinspeed;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		orbitspeed = 3.0;
+		spinspeed = 1.0;
+		phase = args[0];
+		spinphase = args[0];
+	}
+	Default
+	{
+		Scale 0.2;
+		+WALLSPRITE;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+NOGRAVITY;
+		+NOBLOCKMAP;
+		+INTERPOLATEANGLES;
+	}
+	States
+	{
+	Spawn:
+		TOOL B 4 A_SafeExplode(2,4);
+		Wait;
+	}
+}
+
+Class TimSummoner : Actor
+{
+	action void A_Hex()
+	{
+		double j, k, l, m;
+		Vector2 va, vb, p;
+		for ( j=0; j<5; j++ )
+		{
+			va = (cos(j*72),sin(j*72))*80;
+			vb = (cos((j+2)*72),sin((j+2)*72))*80;
+			p = (vb-va).unit();
+			l = (vb-va).length();
+			m = l*0.01;
+			for ( k=0; k<l; k+=m )
+			{
+				Vector2 ppos = va+p*k;
+				A_SpawnParticle("Red",SPF_FULLBRIGHT,50,4,0,ppos.x,ppos.y,2,FRandom[Tim](-0.1,0.1),FRandom[Tim](-0.1,0.1),FRandom[Tim](-0.1,0.1));
+			}
+		}
+		for ( j=0; j<360; j+=0.5 )
+		{
+			Vector2 ppos = (cos(j),sin(j))*80;
+			A_SpawnParticle("Red",SPF_FULLBRIGHT,50,4,0,ppos.x,ppos.y,2,FRandom[Tim](-0.1,0.1),FRandom[Tim](-0.1,0.1),FRandom[Tim](-0.1,0.1));
+		}
+	}
+	States
+	{
+	Spawn:
+		TNT1 AAAAAAAAAAAA 10 A_Hex();
+		TNT1 A 10
+		{
+			A_Hex();
+			A_QuakeEx(9,9,9,40,0,65535,"world/quake",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:2.0);
+		}
+		TNT1 AAAAAAA 10 A_Hex();
+		TNT1 A 10
+		{
+			A_Hex();
+			A_QuakeEx(9,9,9,40,0,65535,"world/quake",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:2.0);
+		}
+		TNT1 AAAAAA 10 A_Hex();
+		TNT1 A 10
+		{
+			A_Hex();
+			A_QuakeEx(9,9,9,40,0,65535,"world/quake",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:2.0);
+		}
+		TNT1 AAAA 10 A_Hex();
+		TNT1 A 10
+		{
+			A_Hex();
+			A_QuakeEx(9,9,9,40,0,65535,"world/quake",QF_RELATIVE|QF_SCALEDOWN,rollIntensity:2.0);
+		}
+		TNT1 AAAAAAAA 10 A_Hex();
+		TNT1 A 1
+		{
+			A_SpawnItemEx("TeleportFog");
+			let t = Spawn("TimAllen",pos);
+			t.master = master;
+		}
+		Stop;
+	}
+}
+
+Class TimAllen : Actor
+{
+	transient CVar candrop;
+	int idletime;
+
+	action void A_TimAttack()
+	{
+		if ( !target ) return;
+		A_StartSound("tim/attack",CHAN_VOICE);
+		A_FaceTarget();
+		if ( CheckMeleeRange() )
+		{
+			int dmg = Random[Tim](4,8)*4;
+			A_StartSound("imp/melee",CHAN_BODY);
+			int newdam = target.DamageMobj(self,self,dmg,"Melee");
+			target.TraceBleed(newdam>0?newdam:dmg, self);
+		}
+		else if ( !Random[Tim](0,2) || ((target.pos.z-target.floorz) > 30) )
+		{
+			let s = SpawnMissile(target,"SeekingPowerDrill");
+			if ( s ) s.tracer = target;
+		}
+		else
+		{
+			let s = SpawnMissile(target,"TimGroundMallets");
+			if ( s ) s.tracer = target;
+		}
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		// orbiters
+		for ( int i=0; i<3; i++ )
+		{
+			let w = Spawn("TimOrbitHammer",pos);
+			w.master = self;
+			w.target = master;
+			w.args[0] = (360/3)*i;
+		}
+		for ( int i=0; i<8; i++ )
+		{
+			let w = Spawn("TimOrbitWrench",pos);
+			w.master = self;
+			w.target = master;
+			w.args[0] = (360/8)*i;
+		}
+		if ( multiplayer && master && master.player )
+		{
+			String loc = StringTable.Localize("$T_TIMPLAYER");
+			SetTag(String.Format(loc,master.player.GetUserName()));
+		}
+		else SetTag(StringTable.Localize("$T_TIM"));
+		// alter behavior in DM
+		if ( !deathmatch ) return;
+		if ( master && master.player ) SetFriendPlayer(master.player);
+		else bFRIENDLY = false;
+	}
+	action void A_TimLook()
+	{
+		lastenemy = target;
+		target = null;
+		// check for players in DM
+		if ( deathmatch )
+		{
+			for ( int i=0; i<MAXPLAYERS; i++ )
+			{
+				if ( !playeringame[i] ) continue;
+				Actor a = players[i].mo;
+				if ( (a == master) || (a.health <= 0) )
+					continue;
+				if ( Distance2D(a) > 1000 ) continue;
+				target = a;
+				break;
+			}
+			if ( target != lastenemy ) A_StartSound("tim/see",CHAN_VOICE);
+			if ( target && !InStateSequence(CurState,FindState("See")) )
+				SetStateLabel("See");
+		}
+		else A_Look();
+		// behave as normal otherwise
+	}
+	action void A_TimChase()
+	{
+		if ( !deathmatch )
+		{
+			A_Chase();
+			return;
+		}
+		if ( Random[Tim]() < 30 ) A_TimLook();
+		if ( !target || (target.health <= 0) || !target.bSHOOTABLE )
+		{
+			SetStateLabel("Idle");
+			return;
+		}
+		FaceMovementDirection();
+		ReactionTime = 0;
+		// succ
+		if ( CheckMeleeRange() )
+		{
+			SetStateLabel("Melee");
+			return;
+		}
+		if ( CheckMissileRange() )
+		{
+			SetStateLabel("Missile");
+			return;
+		}
+		// chase
+		if ( !MonsterMove() )
+		{
+			NewChaseDir();
+			FaceMovementDirection();
+		}
+	}
+	action void A_WanderSound()
+	{
+		if ( Random[Tim]() < 6 ) A_StartSound("tim/active",CHAN_VOICE);
+	}
+	action void A_ChaseSound()
+	{
+		if ( Random[Tim]() < 6 ) A_StartSound("tim/chase",CHAN_VOICE);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		bDROPOFF = abort_friendliesdropoff;
+		if ( !target && master && ((Distance2D(master) > 1000) || !CheckSight(master)) )
+		{
+			idletime++;
+			if ( idletime > 300 )
+			{
+				Teleport(master.pos,master.angle,TELF_SOURCEFOG|TELF_DESTFOG);
+				idletime = 0;
+			}
+		}
+		else idletime = 0;
+	}
+	Default
+	{
+		Obituary "$O_TIM";
+		Radius 16;
+		Height 56;
+		Speed 6;
+		MinMissileChance 240;
+		Mass 100;
+		Health 8000;
+		Scale 0.2;
+		PainChance 255;
+		MONSTER;
+		-COUNTKILL;
+		+FRIENDLY;
+		+LOOKALLAROUND;
+		+QUICKTORETALIATE;
+		+BOSS;
+	}
+	States
+	{
+	Spawn:
+		TIMA A 1 { A_TimLook(); A_Wander(); A_SetScale(0.2,0.21); A_WanderSound(); }
+		TIMA AAA 1 { A_TimLook(); A_Wander(); }
+		TIMA A 1 { A_TimLook(); A_Wander(); A_SetScale(0.22,0.20); A_WanderSound(); }
+		TIMA AAA 1 { A_TimLook(); A_Wander(); }
+		Loop;
+	See:
+		TIMA A 1 { A_TimChase(); A_SetScale(0.2,0.21); A_ChaseSound(); }
+		TIMA AAA 1 A_TimChase();
+		TIMA A 1 { A_TimChase(); A_SetScale(0.22,0.20); A_ChaseSound(); }
+		TIMA AAA 1 A_TimChase();
+		Loop;
+	Melee:
+	Missile:
+		TIMA A 5 A_SetScale(0.18,0.2);
+		TIMA A 5 A_SetScale(0.2,0.21);
+		TIMA A 5
+		{
+			A_SetScale(0.21,0.22);
+			A_TimAttack();
+		}
+		TIMA A 5 A_SetScale(0.18,0.2);
+		Goto See;
+	Pain:
+		TIMA A 3
+		{
+			A_SetScale(0.18,0.22);
+			A_StartSound("tim/pain",CHAN_VOICE);
+		}
+		TIMA A 3 A_SetScale(0.19,0.21);
+		Goto See;
+	Death:
+		TIMA A 8
+		{
+			A_StartSound("tim/death",CHAN_VOICE,attenuation:ATTN_NONE);
+			A_SetScale(0.16,0.26);
+		}
+		TIMA A 8
+		{
+			A_NoBlocking();
+			A_SetScale(0.18,0.22);
+		}
+		TIMA A 8 A_SetScale(0.2,0.2);
+		TIMA A 8 A_SetScale(0.22,0.19);
+		TIMA A 7 A_SetScale(0.25,0.17);
+		TIMA A 7 A_SetScale(0.28,0.14);
+		TIMA A 6 A_SetScale(0.3,0.11);
+		TIMA A 6 A_SetScale(0.33,0.09);
+		TIMA A 5 A_SetScale(0.35,0.07);
+		TIMA A 4 A_SetScale(0.36,0.05);
+		TIMA A 3 A_SetScale(0.37,0.02);
+		TIMA A 2 A_SetScale(0.375,0.01);
+		TIMA A 30 A_SetScale(0.38,0.005);
+		TIMA A 1 A_Fadeout(0.005);
+		Wait;
+	}
+}
+
+Class ToolTim : AbortWeapon
+{
+	bool isactivated;
+	override void ModifyDamage( int damage, Name damageType, out int newdamage, bool passive )
+	{
+		if ( damage <= 0 ) return;
+		if ( passive && isactivated ) newdamage = 0;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		isactivated = false;
+	}
+	override void DetachFromOwner()
+	{
+		Super.DetachFromOwner();
+		isactivated = false;
+	}
+	action void A_ToolTime()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		if ( weap.Ammo1.Amount <= 0 ) return;
+		weap.DepleteAmmo(weap.bAltFire,true,1);
+		A_StartSound("tim/grunt",CHAN_WEAPON);
+		A_QuakeEx(1,1,1,30,0,300,"",QF_SCALEDOWN|QF_RELATIVE,falloff:100,rollIntensity:0.2);
+		GibeAbort.DoFlash(self,"Red",10);
+		A_AlertMonsters();
+		for ( int i=0; i<6; i++ )
+		{
+			let d = Spawn("PowerDrill",pos);
+			d.target = self;
+			d.args[0] = (360/6)*i;
+		}
+		for ( int i=0; i<8; i++ )
+		{
+			let m = Spawn("TimGroundMallets2",pos);
+			m.target = self;
+			m.angle = angle+(360/8)*i;
+			m.vel = (cos(m.angle),sin(m.angle),0)*m.speed;
+		}
+	}
+	action void A_BeginSummon()
+	{
+		A_StartSound("tim/summon",CHAN_WEAPON,attenuation:ATTN_NONE);
+		A_QuakeEx(9,9,9,147,0,65535,"",QF_SCALEUP|QF_RELATIVE,rollIntensity:2.0);
+		for ( Inventory i = Inv; i; i = i.Inv )
+		{
+			String iname = i.GetClassName();
+			if ( (i is 'Powerup') && (iname.Left(9) ~== "AAAAAAAAA") )
+				Powerup(i).EffectTics = Min(Powerup(i).EffectTics,150);
+		}
+	}
+	action void A_SummonTimAllen()
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		A_StartSound("pat/pop",CHAN_WEAPON);
+		let s = Spawn("TimSummoner",pos);
+		s.master = self;
+		GibeAbort.DoFlash(null,"Red",30);
+		TakeInventory("ToolEnergy",100);
+		TakeInventory("ToolTim",1);
+	}
+	Default
+	{
+		Obituary "$O_TIMHEAD";
+		Tag "$T_TIMHEAD";
+		Inventory.PickupMessage "$I_TIMHEAD";
+		Weapon.SlotNumber 7;
+		Weapon.SelectionOrder 20;
+		Weapon.AmmoGive 100;
+		Weapon.AmmoType "ToolEnergy";
+		Weapon.AmmoUse 100;
+		Weapon.MinSelectionAmmo1 100;
+		AbortWeapon.KickTics 12;
+		AbortWeapon.KickX 0;
+		AbortWeapon.KickY 2;
+		AbortWeapon.ThrowForce 1.5;
+		AbortWeapon.ThrowMass 1000;
+		AbortWeapon.ThrowName "$W_TIMHEAD";
+		Scale 0.35;
+	}
+	States
+	{
+	Spawn:
+		TIMA C -1;
+		Stop;
+	Ready:
+		TNT1 A 0
+		{
+			A_Overlay(PSP_LHAND,"Hand");
+			A_Overlay(PSP_RHAND,"Hand");
+			A_OverlayFlags(PSP_RHAND,PSPF_FLIP|PSPF_MIRROR,true);
+			A_Overlay(PSP_OFACE,"Face");
+		}
+		TNT1 A 1 A_WeaponReady(WRF_ALLOWRELOAD|WRF_ALLOWZOOM);
+		Wait;
+	Fire:
+		TNT1 AAAAAA 1 A_WeaponOffset(0,-4,WOF_ADD|WOF_INTERPOLATE);
+	Hold:
+		TNT1 A 30 A_JumpIfNoAmmo("NoWakey");
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),"FastFire");
+		TNT1 A 0 { Invoker.isactivated = true; }
+		TNT1 A 10;
+		TNT1 A 30 A_ToolTime();
+		TNT1 A 0 { Invoker.isactivated = false; }
+		TNT1 A 0 A_Refire();
+		TNT1 AAAA 1 A_WeaponOffset(0,6,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	NoWakey:
+		TNT1 A 30;
+		TNT1 A 0 A_Refire();
+		TNT1 AAAA 1 A_WeaponOffset(0,6,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	FastFire:
+		TNT1 A 0 { Invoker.isactivated = true; }
+		TNT1 A 0 A_BeginSummon();
+		TNT1 A 1
+		{
+			A_OverlayOffset(PSP_OFACE,0,-0.2,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_LHAND,-1.0,0.5,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_RHAND,-1.0,0.5,WOF_ADD|WOF_INTERPOLATE);
+			return A_JumpIf(OverlayY(PSP_OFACE)<=-10,1);
+		}
+		Wait;
+		TNT1 A 1
+		{
+			A_OverlayOffset(PSP_OFACE,0,-0.2,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_LHAND,-1.0,1.0,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_RHAND,-1.0,1.0,WOF_ADD|WOF_INTERPOLATE);
+			return A_JumpIf(OverlayY(PSP_OFACE)<=-20,1);
+		}
+		Wait;
+		TNT1 A 1
+		{
+			A_OverlayOffset(PSP_OFACE,0,-0.2,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_LHAND,-1.0,1.5,WOF_ADD|WOF_INTERPOLATE);
+			A_OverlayOffset(PSP_RHAND,-1.0,1.5,WOF_ADD|WOF_INTERPOLATE);
+			return A_JumpIf(OverlayY(PSP_OFACE)<=-30,1);
+		}
+		Wait;
+		TNT1 A 0
+		{
+			A_OverlayOffset(PSP_OFACE,0,200);
+			A_SummonTimAllen();
+		}
+		TNT1 A 1;
+		Wait;
+	Select:
+		TNT1 A 0 A_WeaponOffset(0,WEAPONBOTTOM*2);
+		TNT1 A 0
+		{
+			A_Overlay(PSP_LHAND,"Hand");
+			A_Overlay(PSP_RHAND,"Hand");
+			A_OverlayFlags(PSP_RHAND,PSPF_FLIP|PSPF_MIRROR,true);
+			A_Overlay(PSP_OFACE,"Face");
+		}
+		TNT1 A 1 A_TallRaise(12);
+		Wait;
+	Deselect:
+		TNT1 A 1 A_TallLower(12);
+		Wait;
+	Hand:
+		OHND A 1;
+		Wait;
+	Face:
+		TIMA B 1;
+		Wait;
+	}
+}

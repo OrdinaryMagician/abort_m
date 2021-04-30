@@ -1,0 +1,6 @@
+Generator Pellet BulletChip
+Generator GunChunk BulletChip
+Generator SmallTile Scorch
+Generator TileClusterBomb Scorch
+Generator PelletBox Scorch
+Generator PJSalt Scorch

@@ -1,0 +1,421 @@
+Class ThonkXLight : DynamicLight
+{
+	Default
+	{
+		DynamicLight.Type "Point";
+		args 255, 255, 0, 120;
+		ReactionTime 15;
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		args[0] = int(255*(ReactionTime/15.));
+		args[1] = int(255*(ReactionTime/15.));
+		A_Countdown();
+	}
+}
+
+Class ThonkShockwave : Actor
+{
+	double anglevel, pitchvel, rollvel;
+	double shocksize, olddmgradius;
+	double lifespan;
+	transient ThinkerIterator t;
+
+	Default
+	{
+		Obituary "$O_HMMALT";
+		RenderStyle "Translucent";
+		Radius 0.1;
+		Height 0;
+		Scale 1.0;
+		ReactionTime 20;
+		+NOBLOCKMAP;
+		+NOGRAVITY;
+		+DONTSPLASH;
+		+ROLLSPRITE;
+		+INTERPOLATEANGLES;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		anglevel = FRandom[Thonk](5,15)*RandomPick[Thonk](-1,1);
+		pitchvel = FRandom[Thonk](5,15)*RandomPick[Thonk](-1,1);
+		rollvel = FRandom[Thonk](5,15)*RandomPick[Thonk](-1,1);
+		lifespan = ReactionTime;
+		A_StartSound("thonk/hmm3",CHAN_BODY,pitch:.8);
+		A_StartSound("thonk/hmm3",CHAN_VOICE,pitch:.7);
+		A_StartSound("thonk/hmm3",CHAN_5,pitch:.6);
+		A_StartSound("thonk/hmm3",CHAN_6,pitch:.5);
+		A_StartSound("thonk/hmm3",CHAN_7,pitch:.4);
+		A_QuakeEx(8,8,8,30,0,900,"",QF_RELATIVE|QF_SCALEDOWN,falloff:500,rollIntensity:0.5);
+		let l = Spawn("ThonkXLight",pos);
+		l.args[3] = 250;
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( isFrozen() ) return;
+		angle += anglevel;
+		pitch += pitchvel;
+		roll += rollvel;
+		if ( alpha <= 0 )
+		{
+			Destroy();
+			return;
+		}
+		if ( !t ) t = ThinkerIterator.Create("Actor");
+		lifespan--;
+		alpha -= 1./ReactionTime;
+		shocksize = 13*(ReactionTime-lifespan)+3.5/(lifespan/ReactionTime+0.05);
+		shocksize *= 0.25;
+		A_SetScale(shocksize*0.25);
+		double dmgradius = shocksize*1.5;
+		Actor a;
+		t.Reinit();
+		while ( a = Actor(t.Next()) )
+		{
+			if ( !a.bShootable || !CheckSight(a,0xf) || (Distance3D(a) > a.radius+dmgradius) ) continue;
+			Vector3 dir = Vec3To(a);
+			double dist = max(1,dir.length());
+			dir = dir/dist+(0,0,0.3);
+			double moscale = max(0,1100-0.22*dist);
+			if ( !a.bDONTTHRUST ) a.vel += dir*((moscale+20)/a.mass);
+			a.DamageMobj(self,target,int(moscale*0.2),'Thonk',DMG_THRUSTLESS);
+			if ( a.player ) GibeAbort.DoFlash(a,Color(255,255,64),80,0.5);
+		}
+		olddmgradius = dmgradius;
+	}
+	States
+	{
+	Spawn:
+		THNK A -1 Bright;
+		Stop;
+	}
+}
+
+Class ThonkDust : Actor
+{
+	double rollvel;
+
+	Default
+	{
+		Radius 2;
+		Height 2;
+		Scale 0.2;
+		RenderStyle "Add";
+		Gravity 0.3;
+		Friction 1;
+		+NOBLOCKMAP;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+INTERPOLATEANGLES;
+		+FORCEXYBILLBOARD;
+	}
+
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		scale *= FRandom[Thonk](0.5,2.0);
+		alpha *= FRandom[Thonk](0.5,2.0);
+		rollvel = FRandom[Thonk](-60,60);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( isFrozen() ) return;
+		roll += rollvel;
+	}
+	States
+	{
+	Spawn:
+	Death:
+		THNK A 1 Bright
+		{
+			A_FadeOut(0.05);
+			A_SetScale(max(0,scale.x-0.01));
+		}
+		Wait;
+	}
+}
+
+Class ThonkGrenade : Actor
+{
+	double rollvel;
+
+	Default
+	{
+		Obituary "$O_HMM";
+		Radius 8;
+		Height 8;
+		Speed 30;
+		DamageFunction (Random[Thonk](2,5)*13);
+		DamageType 'Thonk';
+		BounceSound "thonk/hmm";
+		BounceType "Doom";
+		BounceFactor 0.75;
+		WallBounceFactor 0.75;
+		BounceCount 4;
+		PROJECTILE;
+		-NOGRAVITY;
+		+USEBOUNCESTATE;
+		-BOUNCEAUTOOFF;
+		+BOUNCEAUTOOFFFLOORONLY;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+FORCEXYBILLBOARD;
+		+INTERPOLATEANGLES;
+		Scale 0.2;
+	}
+	virtual void Splode()
+	{
+		double ang, pt;
+		for ( int i=0; i<30; i++ )
+		{
+			let d = Spawn("ThonkDust",pos);
+			ang = FRandom[Thonk](0,360);
+			pt = FRandom[Thonk](-90,90);
+			d.vel = (cos(ang)*cos(pt),sin(ang)*cos(pt),-sin(pt))*FRandom[Thonk](4,8);
+		}
+		A_StartSound("thonk/hmm2",CHAN_BODY,pitch:.9);
+		A_StartSound("thonk/hmm2",CHAN_5,pitch:.8);
+		A_StartSound("thonk/hmm2",CHAN_6,pitch:.7);
+		Spawn("ThonkXLight",pos);
+		A_Explode(GetMissileDamage(0,0),80);
+	}
+	virtual void SetRollVel()
+	{
+		rollvel = FRandom[Thonk](15,60)*RandomPick[Thonk](-1,1);
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		SetRollVel();
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( isFrozen() ) return;
+		roll += rollvel;
+	}
+	States
+	{
+	Spawn:
+		THNK A -1 Bright;
+		Stop;
+	Bounce:
+		THNK A 0
+		{
+			SetRollVel();
+			bHITOWNER = true;
+		}
+		Goto Spawn;
+	Death:
+		TNT1 A 0 Splode();
+		Stop;
+	}
+}
+
+Class BigThonkGrenade : ThonkGrenade
+{
+	double anglevel, pitchvel;
+
+	Default
+	{
+		Obituary "$O_HMMALT";
+		DamageFunction (Random[Thonk](2,5)*22);
+		Speed 40;
+	}
+	override void Splode()
+	{
+		Super.Splode();
+		let s = Spawn("ThonkShockwave",pos);
+		s.target = target;
+	}
+	override void SetRollVel()
+	{
+		rollvel = FRandom[Thonk](5,15)*RandomPick[Thonk](-1,1);
+		anglevel = FRandom[Thonk](5,15)*RandomPick[Thonk](-1,1);
+		pitchvel = FRandom[Thonk](5,15)*RandomPick[Thonk](-1,1);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( isFrozen() ) return;
+		angle += anglevel;
+		pitch += pitchvel;
+	}
+}
+
+Class Hmm : AbortWeapon
+{
+	action void A_ThrowThonk( int amount = 1 )
+	{
+		Weapon weap = Weapon(invoker);
+		if ( !weap ) return;
+		for ( int i=0; i<amount; i++ )
+		{
+			if ( !CountInv("AAAAAAAAA") )
+			{
+				if ( weap.Ammo1.Amount <= 0 ) return;
+				weap.DepleteAmmo(weap.bAltFire,true,1);
+			}
+			Vector3 x, y, z;
+			[x, y, z] = abort_CoordUtil.GetAxes(pitch,angle,roll);
+			Vector3 origin = Vec2OffsetZ(0,0,player.viewz)+10.0*x+4.0*y-0.6*z;
+			[x, y, z] = abort_CoordUtil.GetAxes(BulletSlope(),angle,roll);
+			Actor p;
+			if ( CountInv("AAAAAAAAA") ) p = Spawn("BigThonkGrenade",origin);
+			else p = Spawn("ThonkGrenade",origin);
+			Vector3 dir = (x + y*FRandom[Thonk](-0.02,0.02)*amount + z*FRandom[Thonk](-0.02,0.02)*amount).unit();
+			p.angle = atan2(dir.y,dir.x);
+			p.pitch = -asin(dir.z);
+			p.vel = (cos(p.angle)*cos(p.pitch),sin(p.angle)*cos(p.pitch),-sin(p.pitch))*p.speed*FRandom[Thonk](1.0,1.5)+vel*0.5;
+			p.vel.z += 3;
+			p.target = self;
+		}
+	}
+
+	Default
+	{
+		Tag "$T_HMM";
+		Inventory.PickupMessage "$I_HMM";
+		Weapon.SlotNumber 5;
+		Weapon.SelectionOrder 30;
+		Weapon.AmmoGive 5;
+		Weapon.AmmoType "LewdAmmo";
+		Weapon.AmmoType2 "LewdAmmo";
+		Weapon.AmmoUse 1;
+		Weapon.AmmoUse2 1;
+		AbortWeapon.KickTics 7;
+		AbortWeapon.KickX 6;
+		AbortWeapon.KickY 5;
+		AbortWeapon.ThrowName "$W_HMM";
+		+FLOATBOB;
+		Scale 0.5;
+	}
+	States
+	{
+	Spawn:
+		THKW C -1;
+		Stop;
+	Select:
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),2);
+		TNT1 A 0 A_JumpIfNoAmmo(4);
+		TNT1 A 0 A_WeaponOffset(0,WEAPONBOTTOM*2);
+		TNT1 A 0 A_StartSound("thonk/hmm",CHAN_WEAPON);
+		THKW A 1 A_TallRaise(24);
+		Wait;
+		HPAT A 1 A_Raise(12);
+		Wait;
+	Ready:
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),2);
+		TNT1 A 0 A_JumpIfNoAmmo(2);
+		THKW A 1 A_WeaponReady(WRF_ALLOWRELOAD);
+		Goto Ready;
+		HPAT A 1 A_WeaponReady(WRF_ALLOWRELOAD);
+		Goto Ready;
+	Fire:
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),"FastFire");
+		TNT1 A 0 A_JumpIfNoAmmo("DryFire");
+		TNT1 A 0 A_StartSound("thonk/mmh",CHAN_WEAPON);
+		THKW AAAAAA 1 A_WeaponOffset(8,24,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 10 A_WeaponOffset(60,80);
+		PELB BBBB 1 A_WeaponOffset(-8,-12,WOF_ADD|WOF_INTERPOLATE);
+		PELB B 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		PELB BC 1 A_WeaponOffset(-16,-8,WOF_ADD|WOF_INTERPOLATE);
+		PELB C 0 A_ThrowThonk();
+		PELB CC 1 A_WeaponOffset(-16,-8,WOF_ADD|WOF_INTERPOLATE);
+		PELB CCDD 1 A_WeaponOffset(-12,16,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 10 A_WeaponOffset(48,176);
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),2);
+		TNT1 A 0 A_JumpIfNoAmmo(8);
+		TNT1 A 0 A_StartSound("thonk/hmm",CHAN_WEAPON);
+		THKW AAAAAA 1 A_WeaponOffset(-8,-24,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+		HPAT AAAAAA 1 A_WeaponOffset(-8,-24,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	FastFire:
+		TNT1 A 0 A_StartSound("thonk/mmh",CHAN_WEAPON);
+		THKW BBB 1 A_WeaponOffset(16,48,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 5 A_WeaponOffset(60,80);
+		PELF BB 1 A_WeaponOffset(-16,-24,WOF_ADD|WOF_INTERPOLATE);
+		PELF B 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		PELF C 1 A_WeaponOffset(-32,-16,WOF_ADD|WOF_INTERPOLATE);
+		PELF C 0 A_ThrowThonk();
+		PELF C 1 A_WeaponOffset(-32,-16,WOF_ADD|WOF_INTERPOLATE);
+		PELF DD 1 A_WeaponOffset(-24,48,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 5 A_WeaponOffset(48,176);
+		TNT1 A 0 A_StartSound("thonk/hmm",CHAN_WEAPON);
+		THKW BBB 1 A_WeaponOffset(-16,-48,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	AltFire:
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),"FastAltFire");
+		TNT1 A 0 A_JumpIfNoAmmo("DryFire");
+		TNT1 A 0 A_StartSound("thonk/mmh",CHAN_WEAPON);
+		THKW AAAAAA 1 A_WeaponOffset(8,24,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 20 A_WeaponOffset(60,80);
+		PELB BBBB 1 A_WeaponOffset(-8,-12,WOF_ADD|WOF_INTERPOLATE);
+		PELB B 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		PELB BC 1 A_WeaponOffset(-16,-8,WOF_ADD|WOF_INTERPOLATE);
+		PELB C 0 A_ThrowThonk(5);
+		PELB CC 1 A_WeaponOffset(-16,-8,WOF_ADD|WOF_INTERPOLATE);
+		PELB CCDD 1 A_WeaponOffset(-12,16,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 20 A_WeaponOffset(48,176);
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),2);
+		TNT1 A 0 A_JumpIfNoAmmo(8);
+		TNT1 A 0 A_StartSound("thonk/hmm",CHAN_WEAPON);
+		THKW AAAAAA 1 A_WeaponOffset(-8,-24,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+		HPAT AAAAAA 1 A_WeaponOffset(-8,-24,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+		Goto Ready;
+	FastAltFire:
+		TNT1 A 0 A_StartSound("thonk/mmh",CHAN_WEAPON);
+		THKW BBB 1 A_WeaponOffset(16,48,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 10 A_WeaponOffset(60,80);
+		PELF BB 1 A_WeaponOffset(-16,-24,WOF_ADD|WOF_INTERPOLATE);
+		PELF B 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		PELF C 1 A_WeaponOffset(-32,-16,WOF_ADD|WOF_INTERPOLATE);
+		PELF C 0 A_ThrowThonk(5);
+		PELF C 1 A_WeaponOffset(-32,-16,WOF_ADD|WOF_INTERPOLATE);
+		PELF DD 1 A_WeaponOffset(-24,48,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 10 A_WeaponOffset(48,176);
+		TNT1 A 0 A_StartSound("thonk/hmm",CHAN_WEAPON);
+		THKW BBB 1 A_WeaponOffset(-16,-48,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	DryFire:
+		HPAT AAAAAA 1 A_WeaponOffset(-16,12,WOF_ADD|WOF_INTERPOLATE);
+		HPAT A 10;
+		HPAT A 0 A_StartSound("thonk/hmm",CHAN_VOICE);
+	DryHold:
+		HPAT A 1;
+		HPAT A 10 A_Refire("DryHold");
+		HPAT AAAAAA 1 A_WeaponOffset(16,-12,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	Deselect:
+		TNT1 A 0 A_JumpIf(CountInv("AAAAAAAAA"),2);
+		TNT1 A 0 A_JumpIfNoAmmo(3);
+		TNT1 A 0 A_StartSound("thonk/mmh",CHAN_WEAPON);
+		THKW A 1 A_TallLower(24);
+		Wait;
+		HPAT A 1 A_Lower(12);
+		Wait;
+	}
+}

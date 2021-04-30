@@ -1,0 +1,32 @@
+Model "ThonkShockwave"
+{
+	Path "models/thonk"
+	Model 0 "thonk_d.3d"
+	SurfaceSkin 0 0 "thead.png"
+	SurfaceSkin 0 1 "thand.png"
+	SurfaceSkin 0 2 "tface.png"
+	USEACTORPITCH
+	USEACTORROLL
+	DONTCULLBACKFACES
+	Scale 0.05 0.05 0.06
+
+	FrameIndex THNK A 0 0
+}
+
+Model "BigThonkGrenade"
+{
+	Path "models/thonk"
+	Model 0 "thonk_d.3d"
+	SurfaceSkin 0 0 "thead.png"
+	SurfaceSkin 0 1 "thand.png"
+	SurfaceSkin 0 2 "tface.png"
+	USEACTORPITCH
+	USEACTORROLL
+	USEROTATIONCENTER
+	DONTCULLBACKFACES
+	Scale 0.5 0.5 0.6
+	ZOffset 32
+	Rotation-Center 0 0 8
+
+	FrameIndex THNK A 0 0
+}

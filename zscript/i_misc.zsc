@@ -1,0 +1,400 @@
+Class PieceOfCandy : HealthBonus
+{
+	int ctype;
+	override String PickupMessage()
+	{
+		return String.Format("%s %+d [%s]",StringTable.Localize("$I_CANDY"),amount,StringTable.Localize(String.Format("$C_TYPE%d",ctype)));
+	}
+	Default
+	{
+		Tag "$T_CANDY";
+		Inventory.MaxAmount 500;
+	}
+	override void PostBeginPlay()
+	{
+		// variants
+		int dec = Random[Candy](0,5);
+		ctype = dec;
+		switch ( dec )
+		{
+		case 1:
+			Amount = 3;
+			break;
+		case 2:
+			A_SetTranslation('CandyYellow');
+			Amount = 2;
+			break;
+		case 3:
+			A_SetTranslation('CandyOrange');
+			Amount = 5;
+			break;
+		case 4:
+			A_SetTranslation('CandyBlue');
+			Amount = 6;
+			break;
+		case 5:
+			A_SetTranslation('CandyBrown');
+			Amount = 4;
+			break;
+		default:
+			A_SetTranslation('CandyGreen');
+			Amount = 1;
+			break;
+		}
+	}
+	States
+	{
+	Spawn:
+		PZCN A -1;
+		Stop;
+	}
+}
+
+Class Tofu : ArmorBonus
+{
+	bool nu;
+	override String PickupMessage()
+	{
+		return String.Format("%s %+d",nu?StringTable.Localize("$I_TOKOROTEN"):StringTable.Localize("$I_TOFU"),saveamount);
+	}
+	Default
+	{
+		Tag "$T_TOFU";
+		Armor.MaxSaveAmount 500;
+	}
+	override void PostBeginPlay()
+	{
+		if ( !Random[Tofu](0,20) )
+		{
+			A_SetTranslation('Tennosuke');
+			A_SetRenderStyle(0.9,STYLE_Translucent);
+			SetTag(StringTable.Localize("$T_TOKOROTEN"));
+			nu = true;
+			SaveAmount = 1;
+		}
+		else
+		{
+			SaveAmount = Random[Tofu](2,6);
+			Scale *= 0.8+Amount*0.1;
+		}
+	}
+	States
+	{
+	Spawn:
+		TOFU A -1;
+		Stop;
+	}
+}
+
+Class Banana : Health
+{
+	override String PickupMessage()
+	{
+		return String.Format("%s %+d",(PrevHealth<25)?StringTable.Localize("$I_BANANALOW"):StringTable.Localize("$I_BANANA"),amount);
+	}
+	Default
+	{
+		Tag "$T_BANANA";
+		+ROLLSPRITE;
+	}
+	override void PostBeginPlay()
+	{
+		Amount = Random[Banana](15,30);
+		Scale *= 0.6+Amount*0.02;
+		roll = FRandom[Banana](-30,0);
+		if ( Random[Banana](0,1) )
+		{
+			bSPRITEFLIP = true;
+			roll *= -1;
+		}
+	}
+	States
+	{
+	Spawn:
+		BANA A -1;
+		Stop;
+	}
+}
+
+Class PickleJar : Health
+{
+	override String PickupMessage()
+	{
+		return String.Format("%s %+d",(PrevHealth<25)?StringTable.Localize("$I_PICKLELOW"):StringTable.Localize("$I_PICKLE"),amount);
+	}
+	Default
+	{
+		Tag "$T_PICKLE";
+	}
+	override void PostBeginPlay()
+	{
+		Amount = Random[Pickle](40,60);
+		Scale *= 0.8+Amount*0.01;
+	}
+	States
+	{
+	Spawn:
+		PICL A -1;
+		Stop;
+	}
+}
+
+Class Saucesphere : Soulsphere
+{
+	override String PickupMessage()
+	{
+		return String.Format("%s %+d",StringTable.Localize("$I_SAUCE"),amount);
+	}
+	Default
+	{
+		Tag "$T_SAUCE";
+		Inventory.MaxAmount 300;
+		FloatBobStrength 0.25;
+		+FLOATBOB;
+	}
+	action void A_Sauce()
+	{
+		double ang = FRandom[Sauce](0,360), pt = FRandom[Sauce](-30,60);
+		Vector3 d = (cos(ang)*cos(pt),sin(ang)*cos(pt),-sin(pt))*FRandom[Sauce](5,10);
+		Vector3 ofs = Vec3Offset(d.x,d.y,d.z+25);
+		Spawn("SauceDrop",ofs);
+	}
+	States
+	{
+	Spawn:
+		SAUC AABBCCDD 3 Bright A_Sauce();
+		Loop;
+	}
+}
+
+Class SauceDrop : Actor
+{
+	Default
+	{
+		Scale 0.1;
+		Radius 2;
+		Height 2;
+		Mass 1;
+		Alpha 0.0;
+		RenderStyle "Translucent";
+		+NOBLOCKMAP;
+		+NOGRAVITY;
+		+MISSILE;
+	}
+	States
+	{
+	Spawn:
+		SAUC E 1 Bright
+		{
+			A_FadeIn(0.03);
+			scale.x = min(0.5,scale.x+0.03);
+			scale.y = scale.x;
+			vel.z -= 0.002;
+			return A_JumpIf(alpha>=0.6,1);
+		}
+		Wait;
+		SAUC E 1 { vel.z -= 0.1; }
+		Wait;
+	Death:
+		SAUC E 0 Bright { vel.z = 0; }
+		SAUC E 1 Bright { A_FadeOut(0.02); scale.y = max(0.1,scale.y*0.9); }
+		Wait;
+	}
+}
+
+Class CowboyTofu : Tofu
+{
+	Default
+	{
+		Armor.SavePercent 50;
+		Armor.SaveAmount 5;
+	}
+}
+
+Class ShimapanTofu : Tofu
+{
+	Default
+	{
+		Armor.SavePercent 50;
+		Armor.SaveAmount 500;
+	}
+}
+
+Class Shimapansphere : Megasphere
+{
+	Default
+	{
+		Tag "$T_PANTSU";
+		Inventory.PickupMessage "$I_PANTSU";
+		Scale 0.25;
+		FloatBobStrength 0.2;
+		+FLOATBOB;
+	}
+	States
+	{
+	Spawn:
+		SHIM A 6 Bright;
+		SHIM BCDEF 4 Bright;
+		SHIM G 6 Bright;
+		SHIM FEDCB 4 Bright;
+		Loop;
+	Pickup:
+		TNT1 A 0 GiveInventory("ShimapanTofu",500);
+		TNT1 A 0 GiveInventory("PieceOfCandy",500);
+		Stop;
+	}
+}
+
+Class PowerInvisibilityBlurry : PowerInvisibility
+{
+	Default
+	{
+		Powerup.Strength 90;
+		Powerup.Mode "Additive";
+	}
+}
+
+Class BlurrySphere : BlurSphere
+{
+	Default
+	{
+		Tag "$T_BLURRY";
+		Inventory.PickupMessage "$I_BLURRY";
+		Powerup.Type "PowerInvisibilityBlurry";
+		Scale 0.25;
+		FloatBobStrength 0.2;
+		+FLOATBOB;
+	}
+	States
+	{
+	Spawn:
+		BLUR A -1 Bright;
+		Stop;
+	}
+}
+
+Class ComfyPants : GreenArmor
+{
+	override String PickupMessage()
+	{
+		return String.Format("%s %+d",StringTable.Localize("$I_GPANTS"),saveamount);
+	}
+	Default
+	{
+		Tag "$T_GPANTS";
+		Scale 0.4;
+	}
+	States
+	{
+	Spawn:
+		PAN1 A 6;
+		PAN1 B 7 Bright;
+		Loop;
+	}
+}
+
+Class ComfierPants : BlueArmor
+{
+	override String PickupMessage()
+	{
+		return String.Format("%s %+d",StringTable.Localize("$I_BPANTS"),saveamount);
+	}
+	Default
+	{
+		Tag "$T_BPANTS";
+		Scale 0.35;
+	}
+	States
+	{
+	Spawn:
+		PAN2 A 6;
+		PAN2 B 7 Bright;
+		Loop;
+	}
+}
+
+Class Brightsphere : PowerupGiver
+{
+	Default
+	{
+		Tag "$T_BRIGHT";
+		RenderStyle "Add";
+		Powerup.Type "PowerBrightsphere";
+		Inventory.PickupMessage "$I_BRIGHT";
+		Inventory.MaxAmount 0;
+		FloatBobStrength 0.35;
+		+INVENTORY.AUTOACTIVATE;
+		+INVENTORY.ALWAYSPICKUP;
+		+INVENTORY.BIGPOWERUP;
+		+COUNTITEM;
+		+FLOATBOB;
+	}
+	States
+	{
+	Spawn:
+		BRIT A -1 Bright;
+		Stop;
+	}
+}
+
+Class PowerBrightsphere : Powerup
+{
+	Actor sphere;
+	Default
+	{
+		Powerup.Duration -90;
+	}
+	override void DoEffect()
+	{
+		Super.DoEffect();
+		if ( !Owner ) return;
+		if ( !sphere )
+		{
+			sphere = Spawn("EffectBrightsphere",Owner.pos);
+			sphere.target = Owner;
+		}
+		if ( isBlinking() ) sphere.SetStateLabel("Blink");
+		else sphere.SetStateLabel("Spawn");
+	}
+	override void EndEffect()
+	{
+		Super.EndEffect();
+		if ( !Owner ) return;
+		sphere.Destroy();
+	}
+}
+
+Class EffectBrightsphere : Actor
+{
+	int cnt;
+	Default
+	{
+		+NOBLOCKMAP;
+		+NOGRAVITY;
+		+FORCEXYBILLBOARD;
+		Scale 0.25;
+		RenderStyle "Add";
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !target )
+		{
+			Destroy();
+			return;
+		}
+		cnt++;
+		double rad = target.radius+sin(cnt*3.3)*4;
+		double h = target.height*0.85+sin(cnt*2.1)*2;
+		SetOrigin(target.Vec3Offset(cos(cnt*4.2)*rad,sin(cnt*4.2)*rad,h),true);
+	}
+	States
+	{
+	Spawn:
+		BRIT B -1 Bright;
+		Stop;
+	Blink:
+		TNT1 A -1;
+		Stop;
+	}
+}

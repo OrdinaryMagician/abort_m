@@ -1,0 +1,587 @@
+Class HeadpatTracker : Thinker
+{
+	Actor attachedto;
+	Actor halo;
+	Actor patter;
+	int level, ticker;
+
+	HeadpatTracker Create( Actor a )
+	{
+		ChangeStatNum(STAT_USER);
+		attachedto = a;
+		level = 0;
+		ticker = 0;
+		return self;
+	}
+
+	static HeadpatTracker GetExisting( Actor a )
+	{
+		ThinkerIterator t = ThinkerIterator.Create("HeadpatTracker",STAT_USER);
+		HeadpatTracker ht;
+		while ( ht = HeadpatTracker(t.Next()) )
+			if ( ht.attachedto == a ) return ht;
+		return null;
+	}
+
+	static HeadpatTracker Get( Actor a )
+	{
+		HeadpatTracker ht = GetExisting(a);
+		if ( ht ) return ht;
+		return new("HeadpatTracker").Create(a);
+	}
+
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !attachedto || attachedto.bKILLED || (level < 0) )
+		{
+			Destroy();
+			return;
+		}
+		if ( !halo )
+		{
+			halo = attachedto.Spawn("HeadpatHalo",attachedto.pos+(0,0,attachedto.height+16.0));
+			halo.target = attachedto;
+			halo.master = patter;
+		}
+		halo.A_SetScale(1.0+0.2*level*(50./max(50.,attachedto.SpawnHealth()*0.25)));
+		ticker++;
+		if ( ticker > 30 )
+		{
+			ticker = 0;
+			level--;
+		}
+	}
+
+	override void OnDestroy()
+	{
+		Super.OnDestroy();
+		if ( halo ) halo.Destroy();
+	}
+}
+
+Class Smoke : Actor
+{
+	Default
+	{
+		+NOCLIP;
+		+NOGRAVITY;
+		+FORCEXYBILLBOARD;
+		Scale 0.8;
+		Alpha 0.5;
+		RenderStyle "Shaded";
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		int jumps = Random[Blush](0,19);
+		state dest = ResolveState("Spawn");
+		for ( int i=0; i<jumps; i++ ) dest = dest.NextState;
+		SetState(dest);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		A_FadeOut(0.01);
+		A_SetScale(scale.x*1.01);
+		vel *= 0.97;
+	}
+	States
+	{
+	Spawn:
+		BSMK ABCDEFGHIJKLMNOPQRST 2;
+		Loop;
+	}
+}
+
+Class Hearty : Actor
+{
+	double rollvel;
+	Default
+	{
+		Radius 4;
+		Height 4;
+		Mass 10;
+		Scale 0.5;
+		Gravity 0.5;
+		BounceType "Doom";
+		BounceFactor 0.8;
+		+MISSILE;
+		+THRUACTORS;
+		+NOBLOCKMAP;
+		+ROLLSPRITE;
+		+ROLLCENTER;
+		+USEBOUNCESTATE;
+		+MOVEWITHSECTOR;
+		+INTERPOLATEANGLES;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		double ang = FRandom[Blush](0,360);
+		double pt = FRandom[Blush](-60,20);
+		Vector3 dir = (cos(pt)*cos(ang),cos(pt)*sin(ang),sin(-pt));
+		vel = dir*FRandom[Blush](5.0,15.0);
+		rollvel = FRandom[Blush](10,100)*RandomPick[Blush](-1,1);
+		scale *= FRandom[Blush](0.5,1.5);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( InStateSequence(CurState,FindState("Death")) )
+			A_FadeOut(0.01);
+		else roll += rollvel;
+	}
+	States
+	{
+	Spawn:
+		HART A 1;
+		Wait;
+	Bounce:
+		HART A 0 { rollvel = FRandom[Blush](10,100)*RandomPick[Blush](-1,1); }
+		Goto Spawn;
+	Death:
+		HART A -1 { bMOVEWITHSECTOR = true; }
+		Stop;
+	}
+}
+
+Class HeadpatHalo : Actor
+{
+	action void A_BurstIntoTreats()
+	{
+		for ( int i=0; i<50; i++ )
+		{
+			double rang = FRandom[Blush](0,360), rpt = FRandom[Blush](-90,90);
+			Vector3 rvel = (cos(rang)*cos(rpt),sin(rang)*cos(rpt),-sin(rpt))*FRandom[Blush](0.5,2.0);
+			A_SpawnParticle("Red",0,20,FRandom[Blush](1.0,2.0),0,0,0,height+16.0,rvel.x,rvel.y,rvel.z,0,0,0,1,-1,0.5);
+		}
+		for ( int i=0; i<20; i++ )
+		{
+			double rang = FRandom[Blush](0,360), rpt = FRandom[Blush](-90,30);
+			Vector3 rvel = (cos(rang)*cos(rpt),sin(rang)*cos(rpt),-sin(rpt))*FRandom[Blush](0.5,3.0);
+			let a = Spawn("Smoke",pos+(FRandom[Blush](-1.0,1.0)*radius,FRandom[Blush](-1.0,1.0)*radius,FRandom[Blush](0,1.0)*height));
+			a.SetShade("Red");
+			a.vel = rvel;
+		}
+		for ( int i=0; i<80; i++ )
+			Spawn("Hearty",pos+(FRandom[Blush](-1.0,1.0)*radius,FRandom[Blush](-1.0,1.0)*radius,FRandom[Blush](0,1.0)*height));
+	}
+
+	Default
+	{
+		Obituary "$O_PAT";
+		+NOBLOCKMAP;
+		+NOGRAVITY;
+		+FORCEPAIN;
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( (!target || (scale.x >= 3.0)) && !InStateSequence(CurState,FindState("Pop")) )
+			SetStateLabel("Pop");
+		if ( !target ) return;
+		A_SetSize(target.radius,target.height);
+		SetOrigin(target.pos+(FRandom[Blush](-1.0,1.0),FRandom[Blush](-1.0,1.0),target.height+FRandom[Blush](15.0,17.0)),true);
+	}
+	States
+	{
+	Spawn:
+		HART A -1;
+		Stop;
+	Pop:
+		HART A 60
+		{
+			if ( !target ) return ResolveState(null);
+			target.bDORMANT = true;
+			if ( target.player ) target.player.cheats |= CF_TOTALLYFROZEN;
+			target.A_Pain();
+			if ( target.FindState("Pain") )
+				target.SetStateLabel("Pain");
+			target.A_SetTics(-1);
+			return ResolveState(null);
+		}
+		TNT1 A 0
+		{
+			A_StartSound("pat/pop");
+			if ( !target ) return;
+			SetOrigin(target.pos,true);
+			target.Die(master,self,0,'Love');
+			// make sure they don't play any sounds while popping
+			for ( int i=0; i<8; i++ ) target.A_StopSound(i);
+			// make sure they drop items
+			target.A_NoBlocking();
+			// make sure they trigger death specials
+			if ( target.bBOSSDEATH ) target.A_BossDeath();
+			if ( target is 'CommanderKeen' ) target.A_KeenDie();
+			target.bDORMANT = false;
+			if ( !target.player ) target.Destroy();
+			else
+			{
+				target.player.cheats &= ~CF_TOTALLYFROZEN;
+				target.SetState(FindState("HideMe"));
+				GibeAbort.DoFlash(target,"Red",30);
+			}
+		}
+		TNT1 AAAA 1 A_BurstIntoTreats();
+		TNT1 A 1 { if ( !target ) Destroy(); }
+		Wait;
+	HideMe:
+		TNT1 A 1 A_CheckPlayerDone();
+		Wait;
+	}
+}
+
+const POKE_MAX = 200;
+
+Class PokePuff : Actor
+{
+	Default
+	{
+		+NOBLOCKMAP;
+		+NOGRAVITY;
+		Alpha 0.5;
+		Scale 0.2;
+		RenderStyle "Translucent";
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		A_StartSound("*fist",volume:0.25);
+	}
+	States
+	{
+	Spawn:
+		PUFF CD 2;
+		Stop;
+	}
+}
+
+Class FingerPoke : AbortWeapon
+{
+	int pokeused[POKE_MAX];
+	double pokeforce[POKE_MAX];
+	int pokecount;
+	bool nopat;
+
+	action bool ISeeANazi()
+	{
+		double ang = angle;
+		double pt = AimLineAttack(ang,DEFMELEERANGE*2);
+		FLineTraceData d;
+		LineTrace(ang,DEFMELEERANGE*2,pt,0,player.viewheight,data:d);
+		if ( d.HitActor && d.HitActor is 'WolfensteinSS' ) return true;
+		else if ( d.HitLine || d.HitSector )
+		{
+			String tn = TexMan.GetName(d.HitTexture);
+			if ( (tn ~== "ZZWOLF2") || (tn ~== "ZZWOLF3") || (tn ~== "ZZWOLF4")
+				|| (tn ~== "ZZWOLF6") || (tn ~== "ZZWOLF7") || (tn ~== "ZZWOLF12")
+				|| (tn ~== "ZZWOLF13") ) return true;
+		}
+		return false;
+	}
+
+	action void A_Nopat()
+	{
+		double ang = angle;
+		double pt = AimLineAttack(ang,DEFMELEERANGE);
+		if ( CountInv("AAAAAAAAA") )
+			LineAttack(ang,DEFMELEERANGE,pt,Random[Poke](3,5)*1800,'Melee',"TilePuff");
+		else LineAttack(ang,DEFMELEERANGE,pt,Random[Poke](3,5)*18,'Melee',"TilePuff");
+	}
+
+	action void A_Headpat()
+	{
+		double ang = angle;
+		double pt = AimLineAttack(ang,DEFMELEERANGE);
+		FLineTraceData d;
+		LineTrace(ang,DEFMELEERANGE,pt,0,player.viewheight,data:d);
+		if ( d.HitActor && d.HitActor.bSHOOTABLE && (d.HitActor.Health > 0) )
+		{
+			double hitheight = d.HitLocation.z-d.HitActor.pos.z;
+			if ( hitheight < d.HitActor.height*0.7 ) return;
+			if ( (d.HitActor is 'Astolfo' && (!deathmatch || (d.HitActor.master == self)))
+				|| (!(d.HitActor is 'Astolfo') && d.HitActor.bFRIENDLY)
+				|| (d.HitActor is 'PlayerPawn' && !deathmatch) )
+			{
+				d.HitActor.GiveBody(5);
+				if ( d.HitActor is 'Astolfo' )
+				{
+					d.HitActor.A_Stop();
+					d.HitActor.A_SetTics(30);
+					Astolfo(d.HitActor).gayfuel += 10;
+				}
+				return;
+			}
+			HeadpatTracker ht = HeadpatTracker.Get(d.HitActor);
+			if ( ht.halo && ht.halo.InStateSequence(ht.halo.CurState,ht.halo.FindState("Pop")) )
+				return;
+			d.HitActor.A_Stop();
+			d.HitActor.A_SetTics(30);
+			ht.level++;
+			ht.patter = self;
+		}
+	}
+
+	action void A_Poke()
+	{
+		// estimate offset in view space from overlay
+		Vector3 x, y, z;
+		[x, y, z] = abort_CoordUtil.GetAxes(pitch,angle,roll);
+		double ox, oy;
+		ox = 0.1*((OverlayX(OverlayID())+40)*invoker.pokeused[OverlayID()-PSP_WEAPON]);
+		oy = 0.1*OverlayY(OverlayID());
+		Vector3 origin = Vec2OffsetZ(0,0,player.viewz)+y*ox+z*oy;
+		double ang = angle;
+		double pt = AimLineAttack(ang,DEFMELEERANGE);
+		FLineTraceData d;
+		LineTrace(ang,DEFMELEERANGE,pt,TRF_ABSPOSITION,origin.z,origin.x,origin.y,d);
+		if ( d.HitType != TRACE_HitNone ) Spawn("PokePuff",d.HitLocation-d.HitDir*4.0);
+		if ( d.HitActor )
+		{
+			d.HitActor.DamageMobj(invoker,self,1,'Poke');
+			angle = AngleTo(d.HitActor);
+		}
+		else if ( d.HitLine ) d.HitLine.Activate(self,d.LineSide,SPAC_Impact);
+		A_SetTics(Random[Poke](3,9));
+	}
+
+	action void A_FastPoke()
+	{
+		// estimate offset in view space from overlay
+		Vector3 x, y, z;
+		[x, y, z] = abort_CoordUtil.GetAxes(pitch,angle,roll);
+		double ox, oy;
+		ox = 0.1*((OverlayX(OverlayID())+40)*invoker.pokeused[OverlayID()-PSP_WEAPON]);
+		oy = 0.1*OverlayY(OverlayID());
+		Vector3 origin = Vec2OffsetZ(0,0,player.viewz)+y*ox+z*oy;
+		double ang = angle;
+		double pt = AimLineAttack(ang,DEFMELEERANGE);
+		FLineTraceData d;
+		LineTrace(ang,DEFMELEERANGE,pt,TRF_ABSPOSITION,origin.z,origin.x,origin.y,d);
+		if ( d.HitType != TRACE_HitNone ) Spawn("PokePuff",d.HitLocation-d.HitDir*4.0);
+		if ( d.HitActor )
+		{
+			d.HitActor.DamageMobj(invoker,self,int(Random[Poke](2,4)**2),'Poke');
+			angle = AngleTo(d.HitActor);
+		}
+		else if ( d.HitLine ) d.HitLine.Activate(self,d.LineSide,SPAC_Impact|SPAC_Use);
+	}
+
+	Default
+	{
+		Tag "$T_POKE";
+		Obituary "$O_POKE";
+		Inventory.PickupMessage "$I_POKE";
+		Weapon.SlotNumber 1;
+		Weapon.SelectionOrder 100;
+		AbortWeapon.KickTics 5;
+		AbortWeapon.KickX 9;
+		AbortWeapon.KickY 12;
+		AbortWeapon.ThrowName "$W_POKE";
+		+WEAPON.MELEEWEAPON;
+		+INVENTORY.UNDROPPABLE;
+		+FORCEPAIN;
+		Scale 0.2;
+	}
+	States
+	{
+	Spawn:
+		POKP A -1;
+		Stop;
+	Ready:
+		HPAT A 1 A_WeaponReady(WRF_ALLOWRELOAD);
+		Wait;
+	Fire:
+		HPAT AAAA 1 A_WeaponOffset(0,12,WOF_ADD|WOF_INTERPOLATE);
+		TNT1 A 0 A_WeaponOffset(0,32);
+	Hold:
+		TNT1 A 1
+		{
+			if ( !FindInventory("AAAAAAAAA") && invoker.pokecount > 0 ) return;
+			if ( invoker.pokecount >= POKE_MAX ) return;
+			int slot = 0;
+			for ( int i=1; i<POKE_MAX; i++ ) if ( invoker.pokeused[i] == 0 ) slot = i;
+			if ( slot > 0 )
+			{
+				invoker.pokecount++;
+				if ( FindInventory("AAAAAAAAA") ) A_Overlay(PSP_WEAPON+slot,"FastPoke");
+				else A_Overlay(PSP_WEAPON+slot,"Poke");
+				if ( FindInventory("AAAAAAAAA") && Random[Poke](0,1) )
+				{
+					A_OverlayFlags(PSP_WEAPON+slot,PSPF_FLIP|PSPF_MIRROR,true);
+					invoker.pokeused[slot] = -1;
+				}
+				else invoker.pokeused[slot] = 1;
+			}
+		}
+	Release:
+		TNT1 A 1 A_ReFire("Hold");
+		TNT1 A 0 A_JumpIf(invoker.pokecount>0,"Release");
+		HPAT A 0 A_WeaponOffset(0,80);
+		HPAT AAAA 1 A_WeaponOffset(0,-12,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	Poke:
+		TNT1 A 0
+		{
+			invoker.pokeforce[OverlayID()-PSP_WEAPON] = FRandom[Poke](1.0,1.5);
+			A_OverlayOffset(OverlayID(),Random[Poke](15,30),Random[Poke](35,40)*invoker.pokeforce[OverlayID()-PSP_WEAPON]);
+			A_SetTics(Random[Poke](0,2));
+		}
+		POKE AAA 1
+		{
+			double str = invoker.pokeforce[OverlayID()-PSP_WEAPON];
+			A_OverlayOffset(OverlayID(),-8*str,-12*str,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(0.2*str*invoker.pokeused[OverlayID()-PSP_WEAPON],-0.05*str);
+		}
+		POKE AA 1
+		{
+			double str = invoker.pokeforce[OverlayID()-PSP_WEAPON];
+			A_OverlayOffset(OverlayID(),-8*str,-8*str,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(0.2*str*invoker.pokeused[OverlayID()-PSP_WEAPON],-0.02*str);
+		}
+		POKE A 6 A_Poke();
+		POKE AA 1
+		{
+			double str = invoker.pokeforce[OverlayID()-PSP_WEAPON];
+			A_OverlayOffset(OverlayID(),8*str,8*str,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(-0.2*str*invoker.pokeused[OverlayID()-PSP_WEAPON],0.02*str);
+		}
+		POKE AAA 1
+		{
+			double str = invoker.pokeforce[OverlayID()-PSP_WEAPON];
+			A_OverlayOffset(OverlayID(),8*str,12*str,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(-0.2*str*invoker.pokeused[OverlayID()-PSP_WEAPON],0.05*str);
+		}
+		TNT1 A 0
+		{
+			invoker.pokecount--;
+			invoker.pokeused[OverlayID()-PSP_WEAPON] = false;
+			A_SetTics(Random[Poke](0,2));
+		}
+		Stop;
+	FastPoke:
+		TNT1 A 0
+		{
+			invoker.pokeforce[OverlayID()-PSP_WEAPON] = FRandom[Poke](2.0,3.0);
+			A_OverlayOffset(OverlayID(),Random[Poke](60,120),Random[Poke](30,40)*invoker.pokeforce[OverlayID()-PSP_WEAPON]);
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		POKE BB 1
+		{
+			double str = invoker.pokeforce[OverlayID()-PSP_WEAPON];
+			A_OverlayOffset(OverlayID(),-12*str,-16*str,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(0.2*str*invoker.pokeused[OverlayID()-PSP_WEAPON],-0.1*str);
+		}
+		POKE BB 1
+		{
+			double str = invoker.pokeforce[OverlayID()-PSP_WEAPON];
+			A_OverlayOffset(OverlayID(),-12*str,-8*str,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(0.2*str*invoker.pokeused[OverlayID()-PSP_WEAPON],-0.05*str);
+		}
+		POKE A 1 A_FastPoke();
+		POKE BB 1
+		{
+			double str = invoker.pokeforce[OverlayID()-PSP_WEAPON];
+			A_OverlayOffset(OverlayID(),12*str,8*str,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(-0.2*str*invoker.pokeused[OverlayID()-PSP_WEAPON],0.05*str);
+		}
+		POKE BB 1
+		{
+			double str = invoker.pokeforce[OverlayID()-PSP_WEAPON];
+			A_OverlayOffset(OverlayID(),12*str,16*str,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(-0.2*str*invoker.pokeused[OverlayID()-PSP_WEAPON],0.1*str);
+		}
+		TNT1 A 0
+		{
+			invoker.pokecount--;
+			invoker.pokeused[OverlayID()-PSP_WEAPON] = false;
+		}
+		Stop;
+	AltFire:
+		HPAT A 0 A_JumpIf(ISeeANazi(),"AltFire2");
+		HPAT AAA 1 A_WeaponOffset(-8,-16,WOF_ADD|WOF_INTERPOLATE);
+		HPAT AAA 1 A_WeaponOffset(-12,-12,WOF_ADD|WOF_INTERPOLATE);
+		HPAT AA 1 A_WeaponOffset(-16,-8,WOF_ADD|WOF_INTERPOLATE);
+	AltHold:
+		HPAT A 3 A_JumpIf(CountInv("AAAAAAAAA"),"FastAltHold");
+		HPAT A 1 A_WeaponOffset(-4,12,WOF_ADD|WOF_INTERPOLATE);
+		HPAT A 1 A_WeaponOffset(-2,24,WOF_ADD|WOF_INTERPOLATE);
+		HPAT A 4 A_Headpat();
+		HPAT A 1 A_WeaponOffset(2,-24,WOF_ADD|WOF_INTERPOLATE);
+		HPAT A 1 A_WeaponOffset(4,-12,WOF_ADD|WOF_INTERPOLATE);
+		HPAT A 0 A_JumpIf(ISeeANazi(),2);
+		HPAT A 1 A_Refire("AltHold");
+		HPAT A 0 A_ClearRefire();
+		HPAT AA 1 A_WeaponOffset(16,8,WOF_ADD|WOF_INTERPOLATE);
+		HPAT AAA 1 A_WeaponOffset(12,12,WOF_ADD|WOF_INTERPOLATE);
+		HPAT AAA 1 A_WeaponOffset(8,16,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	FastAltHold:
+		HPAT B 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		HPAT B 1
+		{
+			A_WeaponOffset(-6,36,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(-0.5,6.0);
+		}
+		HPAT A 0 A_Headpat();
+		HPAT B 1
+		{
+			A_WeaponOffset(6,-36,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(0.5,-6.0);
+		}
+		HPAT A 0 A_JumpIf(ISeeANazi(),2);
+		HPAT A 0 A_Refire("AltHold");
+		HPAT A 0 A_ClearRefire();
+		HPAT AA 1 A_WeaponOffset(16,8,WOF_ADD|WOF_INTERPOLATE);
+		HPAT AAA 1 A_WeaponOffset(12,12,WOF_ADD|WOF_INTERPOLATE);
+		HPAT AAA 1 A_WeaponOffset(8,16,WOF_ADD|WOF_INTERPOLATE);
+		Goto Ready;
+	AltFire2:
+		HPAT A 0 A_JumpIf(CountInv("AAAAAAAAA"),"FastAltFire2");
+		HPAT A 5;
+		HPAT CC 1 A_WeaponOffset(-48,-32,WOF_ADD|WOF_INTERPOLATE);
+		HPAT C 15 A_Nopat();
+		HPAT CCCCCCCC 1 A_WeaponOffset(12,8,WOF_ADD|WOF_INTERPOLATE);
+		HPAT A 6;
+		Goto Ready;
+	FastAltFire2:
+		HPAT A 3;
+		HPAT D 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		HPAT DD 1
+		{
+			A_WeaponOffset(-48,-32,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(2.,-0.8);
+		}
+		HPAT C 6 A_Nopat();
+		HPAT D 0
+		{
+			let w = Spawn("Whoosh");
+			w.target = self;
+		}
+		HPAT DDDD 1
+		{
+			A_WeaponOffset(24,16,WOF_ADD|WOF_INTERPOLATE);
+			A_Swing(-1.,0.4);
+		}
+		HPAT A 4;
+		Goto Ready;
+	Select:
+		TNT1 A 0 { invoker.pokecount = 0; for ( int i=0; i<POKE_MAX; i++ ) invoker.pokeused[i] = false; }
+		HPAT A 1 A_Raise(12);
+		Wait;
+	Deselect:
+		TNT1 A 0 { invoker.pokecount = 0; for ( int i=0; i<POKE_MAX; i++ ) invoker.pokeused[i] = false; }
+		HPAT A 1 A_Lower(12);
+		Wait;
+	}
+}

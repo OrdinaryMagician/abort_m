@@ -1,0 +1,207 @@
+Class Cowboy : PowerupGiver
+{
+	int wtimer;
+	Default
+	{
+		Tag "$T_COWBOY";
+		Inventory.PickupMessage "$I_COWBOY";
+		Inventory.MaxAmount 0;
+		Scale 0.5;
+		FloatBobStrength 0.5;
+		+INVENTORY.AUTOACTIVATE;
+		+INVENTORY.ALWAYSPICKUP;
+		+INVENTORY.BIGPOWERUP;
+		+INVENTORY.ADDITIVETIME;
+		+COUNTITEM;
+		+FLOATBOB;
+	}
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		wtimer = Random[Cowboy](50,100);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		wtimer--;
+		if ( wtimer <= 0 )
+		{
+			A_StartSound("rice/themusic",CHAN_AUTO,CHANF_DEFAULT,0.3,2.0);
+			wtimer = Random[Cowboy](800,3200);
+		}
+	}
+	override bool Use( bool pickup )
+	{
+		if ( !Owner ) return true;
+		bool usedup = false;
+		let power = Powerup(Spawn("AAAAAAAAA"));
+		AAAAAAAAA(power).skin = lastskin;
+		power.bAlwaysPickup |= bAlwaysPickup;
+		power.bAdditiveTime |= bAdditiveTime;
+		power.bNoTeleportFreeze |= bNoTeleportFreeze;
+		if ( power.CallTryPickup(Owner) ) usedup = true;
+		power.GoAwayAndDie();
+		power = Powerup(Spawn("AAAAAAAAA_Jump"));
+		power.bAlwaysPickup |= bAlwaysPickup;
+		power.bAdditiveTime |= bAdditiveTime;
+		power.bNoTeleportFreeze |= bNoTeleportFreeze;
+		if ( power.CallTryPickup(Owner) ) usedup = true;
+		power.GoAwayAndDie();
+		power = Powerup(Spawn("AAAAAAAAA_Speed"));
+		power.bAlwaysPickup |= bAlwaysPickup;
+		power.bAdditiveTime |= bAdditiveTime;
+		power.bNoTeleportFreeze |= bNoTeleportFreeze;
+		if ( power.CallTryPickup(Owner) ) usedup = true;
+		power.GoAwayAndDie();
+		if ( deathmatch ) return usedup;
+		power = Powerup(Spawn("AAAAAAAAA_Buddha"));
+		power.bAlwaysPickup |= bAlwaysPickup;
+		power.bAdditiveTime |= bAdditiveTime;
+		power.bNoTeleportFreeze |= bNoTeleportFreeze;
+		if ( power.CallTryPickup(Owner) ) usedup = true;
+		power.GoAwayAndDie();
+		return usedup;
+	}
+	States
+	{
+	Spawn:
+		RICE A -1 Bright Light("BigItemLight");
+		Stop;
+	}
+}
+
+Class BigEnough : Actor
+{
+	Default
+	{
+		+NOBLOCKMAP;
+		+NOGRAVITY;
+	}
+	int cdown, skin;
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		A_StartSound("rice/aaaaaaaaa",CHAN_VOICE,CHANF_LOOP,1.0,0.5);
+		A_StartSound("rice/aaaaaaaaa",CHAN_7,CHANF_LOOP,1.0,ATTN_NONE);
+	}
+	override void Tick()
+	{
+		Super.Tick();
+		if ( !target )
+		{
+			Destroy();
+			return;
+		}
+		SetOrigin(target.pos,true);
+		if ( players[consoleplayer].camera == target )
+		{
+			A_SoundVolume(CHAN_VOICE,0.0);
+			A_SoundVolume(CHAN_7,min(abort_bigvol,Powerup(Master).EffectTics/150.));
+		}
+		else
+		{
+			A_SoundVolume(CHAN_VOICE,min(abort_bigvol,Powerup(Master).EffectTics/150.));
+			A_SoundVolume(CHAN_7,0.0);
+		}
+	}
+	override void OnDestroy()
+	{
+		Super.OnDestroy();
+		A_StopSound(CHAN_VOICE);
+		A_StopSound(CHAN_7);
+	}
+}
+
+Class AAAAAAAAA_Jump : PowerHighJump
+{
+	Default
+	{
+		Powerup.Duration -100;
+		Powerup.Strength 2;
+		+INVENTORY.ADDITIVETIME
+	}
+}
+
+Class AAAAAAAAA_Speed : PowerSpeed
+{
+	Default
+	{
+		Powerup.Duration -100;
+		Speed 2;
+		+INVENTORY.ADDITIVETIME
+	}
+}
+
+Class AAAAAAAAA_Buddha : PowerBuddha
+{
+	Default
+	{
+		Powerup.Duration -100;
+		+INVENTORY.ADDITIVETIME
+	}
+}
+
+Class AAAAAAAAA : Powerup
+{
+	Actor be;
+	double beat;
+	int skin;
+	int MaxTics;
+	Default
+	{
+		Powerup.Duration -100;
+		+INVENTORY.ADDITIVETIME
+	}
+	override bool HandlePickup( Inventory item )
+	{
+		bool res = Super.HandlePickup(item);
+		if ( item.GetClass() == GetClass() )
+		{
+			MaxTics += 100*35;
+			skin = AAAAAAAAA(item).skin;
+		}
+		return res;
+	}
+	override Inventory CreateCopy( Actor other )
+	{
+		Inventory i = Super.CreateCopy(other);
+		MaxTics = EffectTics;
+		return i;
+	}
+	override void DoEffect()
+	{
+		Super.DoEffect();
+		if ( !Owner ) return;
+		Owner.A_AlertMonsters(); // continuously alert monsters for obvious reasons
+		if ( be && (BigEnough(be).skin != skin) ) be.Destroy();
+		if ( !be )
+		{
+			be = Spawn("BigEnough");
+			be.target = Owner;
+			be.master = self;
+			BigEnough(be).skin = skin;
+			beat = 0.0;
+		}
+		beat += 2./35.;
+		if ( ((beat-floor(beat)) <= 0.5) && (Owner.health > 0) )
+		{
+			Owner.GiveInventory("PieceOfCandy",1);
+			Owner.GiveInventory("CowboyTofu",1);
+		}
+		if ( deathmatch && (EffectTics > 0) ) EffectTics = max(0,EffectTics-2);
+	}
+	override void EndEffect()
+	{
+		Super.EndEffect();
+		if ( !Owner ) return;
+		be.Destroy();
+	}
+	override void ModifyDamage( int damage, Name damageType, out int newdamage, bool passive )
+	{
+		if ( damage <= 0 ) return;
+		if ( passive )
+			newdamage = max(0,ApplyDamageFactors(GetClass(),damageType,damage,damage/8));
+		else if ( Owner && Owner.player && Owner.player.ReadyWeapon && !(Owner.player.ReadyWeapon is 'AbortWeapon') )
+			newdamage = max(0,ApplyDamageFactors(GetClass(),damageType,damage,damage*4));
+	}
+}

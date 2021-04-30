@@ -1,0 +1,23 @@
+OptionMenu "AbortMenu"
+{
+	Title "$AMNU_TITLE"
+
+	StaticText "$AMNU_WOPT", "Gold"
+	Option "$AMNU_ABORT", "abort_canuse", "YesNo"
+	Option "$AMNU_LOUDBOI", "abort_mufflegsg", "YesNo"
+	StaticText " "
+	StaticText "$AMNU_IOPT", "Gold"
+	Option "$AMNU_BSHADER", "abort_shaders", "YesNo"
+	Slider "$AMNU_BVOL", "abort_bigvol", 0.0, 1.0, 0.05
+	StaticText " "
+	StaticText "$AMNU_MOPT", "Gold"
+	Option "$AMNU_TBOSS", "abort_brainfix", "YesNo"
+	Option "$AMNU_FDROP", "abort_friendliesdropoff", "YesNo"
+	Option "$AMNU_AGITATE", "abort_revskulls", "YesNo"
+}
+
+AddOptionMenu "OptionsMenu"
+{
+	StaticText " "
+	Submenu "$AMNU_TITLE", "AbortMenu"
+}

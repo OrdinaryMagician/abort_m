@@ -1,0 +1,39 @@
+version "4.5"
+
+// mathstuffs
+#include "zscript/abort_coordutil.zsc"
+// common handler
+#include "zscript/h_handler.zsc"
+// items 1.0
+#include "zscript/i_cowboy.zsc"
+// items 1.1.1
+#include "zscript/i_misc.zsc"
+// items 1.2
+#include "zscript/i_absurd.zsc"
+// weapons 1.0
+#include "zscript/w_base.zsc"
+#include "zscript/w_poke.zsc"
+#include "zscript/w_hex.zsc"
+#include "zscript/w_pea.zsc"
+#include "zscript/w_pellet.zsc"
+#include "zscript/w_guns.zsc"
+#include "zscript/w_bigp.zsc"
+#include "zscript/w_insert.zsc"
+#include "zscript/w_astolfo.zsc"
+#include "zscript/w_ouch.zsc"
+#include "zscript/w_tim.zsc"
+#include "zscript/w_butan.zsc"
+// weapons 1.1
+#include "zscript/w_foamy.zsc"
+#include "zscript/w_spamspam.zsc"
+#include "zscript/w_pjsalt.zsc"
+#include "zscript/w_thonk.zsc"
+#include "zscript/w_sweetraveparty.zsc"
+// enemy tweaks
+#include "zscript/e_revenant.zsc"
+// modified status bar
+#include "zscript/sbar.zsc"
+// titlemap stuff
+#include "zscript/t_map.zsc"
+// abortguy
+#include "zscript/p_guy.zsc"

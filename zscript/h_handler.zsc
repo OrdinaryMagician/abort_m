@@ -1,0 +1,592 @@
+Class OuchFlash : HUDMessageBase
+{
+	override bool Tick()
+	{
+		let ga = GibeAbort(EventHandler.Find("GibeAbort"));
+		return (!ga.ouching&&(ga.ouchamt<=0));
+	}
+	override void Draw( int bottom, int visibility )
+	{
+		let ga = GibeAbort(EventHandler.Find("GibeAbort"));
+		if ( automapactive || (visibility != BaseStatusBar.HUDMSGLayer_UnderHUD) ) return;
+		Screen.Dim(Color(255,255,255),ga.ouchamt,0,0,Screen.GetWidth(),Screen.GetHeight());
+	}
+}
+
+Class AbortFlash : HUDMessageBase
+{
+	override bool Tick()
+	{
+		let ga = GibeAbort(EventHandler.Find("GibeAbort"));
+		return (!ga.aborting&&(ga.dimamt<=0));
+	}
+	override void Draw( int bottom, int visibility )
+	{
+		let ga = GibeAbort(EventHandler.Find("GibeAbort"));
+		if ( visibility != BaseStatusBar.HUDMSGLayer_UnderHUD ) return;
+		Screen.Dim(Color(255,0,0),ga.dimamt,0,0,Screen.GetWidth(),Screen.GetHeight());
+	}
+}
+
+Class CheapSpeedLines : HUDMessageBase
+{
+	AAAAAAAAA effector;
+	TextureID wl, bl;
+	override bool Tick()
+	{
+		return (!effector||(effector.EffectTics<=0));
+	}
+	CheapSpeedLines Setup( AAAAAAAAA e )
+	{
+		effector = e;
+		wl = TexMan.CheckForTexture("SPEEDLW1",TexMan.Type_Any);
+		bl = TexMan.CheckForTexture("SPEEDLB1",TexMan.Type_Any);
+		return self;
+	}
+	override void Draw( int bottom, int visibility )
+	{
+		if ( !effector || (players[consoleplayer].camera != effector.Owner) ) return;
+		if ( visibility != BaseStatusBar.HUDMSGLayer_UnderHUD ) return;
+		Screen.DrawTexture(bl,true,0,0,DTA_KeepRatio,true,DTA_VirtualWidth,320,DTA_VirtualHeight,200,DTA_Alpha,min(1.0,effector.effecttics/150.0));
+		Screen.DrawTexture(wl,true,0,0,DTA_KeepRatio,true,DTA_VirtualWidth,320,DTA_VirtualHeight,200,DTA_Alpha,min(1.0,effector.effecttics/150.0));
+	}
+}
+
+Class GenericFlash : HUDMessageBase
+{
+	Color col;
+	int duration;
+	double alpha, basealpha;
+	Actor cam;
+	GenericFlash Setup( Actor camera, Color c, int d, double b )
+	{
+		alpha = 1.0;
+		basealpha = b;
+		col = c;
+		duration = d;
+		cam = camera;
+		return self;
+	}
+	override bool Tick()
+	{
+		alpha -= 1./duration;
+		return (alpha<=0);
+	}
+	override void Draw( int bottom, int visibility )
+	{
+		if ( automapactive || (visibility != BaseStatusBar.HUDMSGLayer_UnderHUD) ) return;
+		if ( cam && (players[consoleplayer].camera != cam) ) return;
+		Screen.Dim(col,alpha*basealpha,0,0,Screen.GetWidth(),Screen.GetHeight());
+	}
+}
+
+Class QueuedFlash
+{
+	Color c;
+	int duration;
+	int tic;
+	double basealpha;
+	Actor cam;
+}
+
+Class GibeAbort : EventHandler
+{
+	bool aborting, ouching;
+	double dimamt, ouchamt;
+	int abortingplayer;
+	ui OuchFlash of;
+	ui AbortFlash af;
+	ui CheapSpeedLines sl;
+	Array<QueuedFlash> flashes;
+	bool isbd, ispb;
+	Array<Class<Actor> > AllBouncers;
+	bool dobounces;
+	int bouncetimer, bouncertic;
+	State bouncerstate;
+	Vector2 bouncerscale;
+	int bouncertrans;
+	transient ui ThinkerIterator tt;
+	ui TextureID salt;
+
+	override void CheckReplacement( ReplaceEvent e )
+	{
+		if ( e.Replacee == 'Chainsaw' ) e.Replacement = 'TileWeapon';
+		else if ( e.Replacee == 'Fist' ) e.Replacement = 'FingerPoke';
+		else if ( e.Replacee == 'Pistol' ) e.Replacement = 'PeaShooter';
+		else if ( e.Replacee == 'Shotgun' )
+		{
+			if ( Random[WhichWeapon](0,1) ) e.Replacement = 'FoamGun';
+			else e.Replacement = 'BoxOfPellets';
+		}
+		else if ( e.Replacee == 'SuperShotgun' )
+		{
+			if ( Random[WhichWeapon](0,1) ) e.Replacement = 'SpamCannon';
+			else e.Replacement = 'GunShotgun';
+		}
+		else if ( e.Replacee == 'Chaingun' )
+		{
+			if ( Random[WhichWeapon](0,1) ) e.Replacement = 'ASaltRifle';
+			else e.Replacement = 'BigPee';
+		}
+		else if ( e.Replacee == 'RocketLauncher' )
+		{
+			if ( Random[WhichWeapon](0,1) ) e.Replacement = 'Hmm';
+			else e.Replacement = 'Lewd';
+		}
+		else if ( e.Replacee == 'PlasmaRifle' )
+		{
+			// replace plasma rifle with gunshotgun every odd level of each doom 1 episode (excluding 1)
+			if ( (level.mapname.Mid(2,int.max) == "M3") || (level.mapname.Mid(2,int.max) == "M5") || (level.mapname.Mid(2,int.max) == "M7") || (level.mapname.Mid(2,int.max) == "M9") )
+			{
+				if ( Random[WhichWeapon](0,1) ) e.Replacement = 'SpamCannon';
+				else e.Replacement = 'GunShotgun';
+			}
+			else
+			{
+				if ( Random[WhichWeapon](0,1) ) e.Replacement = 'RaveGun';
+				else e.Replacement = 'AstolfoWeapon';
+			}
+		}
+		else if ( e.Replacee == 'BFG9000' )
+		{
+			if ( Random[WhichWeapon](0,1) ) e.Replacement = 'OuchWeapon';
+			else e.Replacement = 'ToolTim';
+		}
+		else if ( e.Replacee == 'Clip' ) e.Replacement = 'Peas';
+		else if ( e.Replacee == 'ClipBox' ) e.Replacement = 'PeaBox';
+		else if ( e.Replacee == 'Shell' ) e.Replacement = 'Pellets';
+		else if ( e.Replacee == 'ShellBox' ) e.Replacement = 'PelletsBig';
+		else if ( e.Replacee == 'RocketAmmo' ) e.Replacement = 'LewdAmmo';
+		else if ( e.Replacee == 'RocketBox' ) e.Replacement = 'LewdAmmoCluster';
+		else if ( e.Replacee == 'Cell' ) e.Replacement = 'Bepis';
+		else if ( e.Replacee == 'CellPack' ) e.Replacement = 'BepisPack';
+		else if ( (e.Replacee == 'Berserk') || (e.Replacee == 'InvulnerabilitySphere') ) e.Replacement = 'Cowboy';
+		else if ( e.Replacee == 'HealthBonus' ) e.Replacement = 'PieceOfCandy';
+		else if ( e.Replacee == 'ArmorBonus' ) e.Replacement = 'Tofu';
+		else if ( e.Replacee == 'Stimpack' ) e.Replacement = 'Banana';
+		else if ( e.Replacee == 'Medikit' ) e.Replacement = 'PickleJar';
+		else if ( e.Replacee == 'Soulsphere' ) e.Replacement = 'Saucesphere';
+		else if ( e.Replacee == 'Megasphere' ) e.Replacement = 'Shimapansphere';
+		else if ( e.Replacee == 'Blursphere' ) e.Replacement = 'Blurrysphere';
+		else if ( e.Replacee == 'GreenArmor' ) e.Replacement = 'ComfyPants';
+		else if ( e.Replacee == 'BlueArmor' ) e.Replacement = 'ComfierPants';
+		else if ( e.Replacee == 'Infrared' ) e.Replacement = 'Brightsphere';
+	}
+
+	override void PostUiTick()
+	{
+		if ( bouncerstate && (bouncertic == gametic) )
+		{
+			TitlemapBouncer bnc = new("TitlemapBouncer").Init(bouncerstate,bouncerscale,bouncertrans);
+			StatusBar.AttachMessage(bnc);
+		}
+		if ( aborting && !af )
+		{
+			af = new("AbortFlash");
+			StatusBar.AttachMessage(af,-3000,BaseStatusBar.HUDMSGLayer_UnderHUD);
+		}
+		if ( ouching && !of )
+		{
+			of = new("OuchFlash");
+			StatusBar.AttachMessage(of,-2999,BaseStatusBar.HUDMSGLayer_UnderHUD);
+		}
+		for ( int i=0; i<flashes.size(); i++ )
+		{
+			if ( flashes[i].tic < gametic ) continue;
+			GenericFlash gf = new("GenericFlash").Setup(flashes[i].cam,flashes[i].c,flashes[i].duration,flashes[i].basealpha);
+			StatusBar.AttachMessage(gf,0,BaseStatusBar.HUDMSGLayer_UnderHUD);
+		}
+		// subtly tell people who autoload BD/PB that the mods are incompatible
+		if ( isbd ) for ( int i=0; i<8; i++ ) StatusBar.AttachMessage(new("Shiggy").Init());
+		if ( ispb ) for ( int i=0; i<8; i++ ) StatusBar.AttachMessage(new("Shiggy").Init(true));
+		if ( ispb || isbd ) StatusBar.AttachMessage(new("TheBird").Init());
+	}
+
+	override void WorldLoaded( WorldEvent e )
+	{
+		dobounces = 0;
+		bouncetimer = 0;
+		for ( int i=0; i<AllActorClasses.Size(); i++ )
+		{
+			readonly<Actor> a = GetDefaultByType(AllActorClasses[i]);
+			if ( !a ) continue;
+			State ss = a.FindState("Spawn");
+			if ( ((a.bIsMonster && a.bCountKill) || (a.GetClass() is 'Inventory')) && ss && ss.ValidateSpriteFrame() ) AllBouncers.Push(AllActorClasses[i]);
+		}
+		abortingplayer = 0;
+		aborting = false;
+		ouching = false;
+		dimamt = 0.;
+		ouchamt = 0.;
+		isbd = false;
+		ispb = false;
+		// detect BD pistol / PB playerclass
+		// only check for this so people who use monsters-only versions
+		// of the mods (which is what people SHOULD be using instead)
+		// don't get screwed too
+		for ( int i=0; i<AllActorClasses.size(); i++ )
+		{
+			if ( AllActorClasses[i].GetClassName() == "BrutalWeapon" )
+				isbd = true;
+			else if ( AllActorClasses[i].GetClassName() == "BrutalDoomer" )
+				ispb = true;
+		}
+		// toggle these off on map start, as they will carry over from
+		// the previous map before the first tic otherwise
+		PlayerInfo p = players[consoleplayer];
+		Shader.SetEnabled(p,"speedlines-layer1",false);
+		Shader.SetEnabled(p,"speedlines-layer2",false);
+		Shader.SetEnabled(p,"zoom-blur",false);
+		// titlepic on titlemap
+		if ( level.mapname != "TITLEMAP" ) return;
+		int l = level.CreateLineIdIterator(1).Next();
+		if ( l == -1 ) return;
+		TextureID tpic = TexMan.CheckForTexture("CONBACK",TexMan.Type_Any);
+		if ( !tpic.IsValid() ) tpic = TexMan.CheckForTexture("TITLEPIC",TexMan.Type_Any);
+		if ( !tpic.IsValid() ) return;
+		level.Lines[l].sidedef[0].SetTexture(2,tpic);
+		Vector2 s = TexMan.GetScaledSize(tpic);
+		double ar = s.y/s.x;
+		s.x = 320./s.x;
+		s.y = (320./s.y)*ar;
+		level.Lines[l].sidedef[0].SetTextureXScale(2,2./s.x);
+		level.Lines[l].sidedef[0].SetTextureYScale(2,2./s.y);
+		// adjust billboard height to match aspect
+		double ofs = (100*s.y)-100;
+		if ( ofs != 0 )
+		{
+			double dest = level.Lines[l].backsector.floorplane.ZAtPoint((0,0))+ofs;
+			level.Lines[l].backsector.MoveFloor(abs(ofs),abs(dest),0,(ofs>0)?1:-1,false,true);
+		}
+	}
+
+	override void PlayerEntered( PlayerEvent e )
+	{
+		// replace vanille
+		if ( players[e.playernumber].mo.FindInventory("Fist") )
+			players[e.playernumber].mo.TakeInventory("Fist",1);
+		if ( players[e.playernumber].mo.FindInventory("Pistol") )
+			players[e.playernumber].mo.TakeInventory("Pistol",1);
+		// gibe newstuffs
+		if ( !players[e.playernumber].mo.FindInventory("AbortButton") )
+			players[e.playernumber].mo.GiveInventory("AbortButton",1);
+		if ( !players[e.playernumber].mo.FindInventory("FingerPoke") )
+			players[e.playernumber].mo.GiveInventory("FingerPoke",1);
+		if ( !players[e.playernumber].mo.FindInventory("PeaShooter") )
+			players[e.playernumber].mo.GiveInventory("PeaShooter",1);
+	}
+
+	override void PlayerRespawned( PlayerEvent e )
+	{
+		// replace vanille
+		if ( players[e.playernumber].mo.FindInventory("Fist") )
+			players[e.playernumber].mo.TakeInventory("Fist",1);
+		if ( players[e.playernumber].mo.FindInventory("Pistol") )
+			players[e.playernumber].mo.TakeInventory("Pistol",1);
+		// gibe newstuffs
+		if ( !players[e.playernumber].mo.FindInventory("AbortButton") )
+			players[e.playernumber].mo.GiveInventory("AbortButton",1);
+		if ( !players[e.playernumber].mo.FindInventory("FingerPoke") )
+			players[e.playernumber].mo.GiveInventory("FingerPoke",1);
+		if ( !players[e.playernumber].mo.FindInventory("PeaShooter") )
+			players[e.playernumber].mo.GiveInventory("PeaShooter",1);
+	}
+
+	override void RenderOverlay( RenderEvent e )
+	{
+		// speed lines shader for cowboy effect
+		PlayerInfo p = players[consoleplayer];
+		AAAAAAAAA a = AAAAAAAAA(e.Camera.FindInventory("AAAAAAAAA"));
+		if ( a && abort_shaders )
+		{
+			if ( sl )
+			{
+				StatusBar.DetachMessage(sl);
+				sl.Destroy();
+			}
+			Shader.SetEnabled(p,"speedlines-layer1",true);
+			Shader.SetEnabled(p,"speedlines-layer2",true);
+			Shader.SetEnabled(p,"zoom-blur",true);
+			Shader.SetUniform1f(p,"speedlines-layer1","Fade",min(1.0,a.effecttics/150.0));
+			Shader.SetUniform1f(p,"speedlines-layer2","Fade",min(1.0,a.effecttics/150.0));
+			Shader.SetUniform1f(p,"zoom-blur","Fade",min(1.0,a.effecttics/150.0));
+			Shader.SetUniform1f(p,"zoom-blur","Str",3.0*(max(0.5,1.0-(a.beat-floor(a.beat)))-0.4));
+		}
+		else
+		{
+			if ( a && !sl )
+			{
+				sl = new("CheapSpeedLines").Setup(a);
+				StatusBar.AttachMessage(sl,-3001,BaseStatusBar.HUDMSGLayer_UnderHUD);
+			}
+			Shader.SetEnabled(p,"speedlines-layer1",false);
+			Shader.SetEnabled(p,"speedlines-layer2",false);
+			Shader.SetEnabled(p,"zoom-blur",false);
+		}
+		Shader.SetUniform1f(p,"speedlines-layer1","Timer",(gametic+e.fractic)/35.0);
+		Shader.SetUniform1f(p,"speedlines-layer2","Timer",(gametic+e.fractic)/35.0);
+		if ( !tt ) tt = ThinkerIterator.Create("SaltyDebuff",Thinker.STAT_USER);
+		if ( salt.IsNull() ) salt = TexMan.CheckForTexture("PJSTB0",TexMan.Type_Any);
+		tt.Reinit();
+		SaltyDebuff f;
+		while ( f = SaltyDebuff(tt.Next()) )
+		{
+			if ( (f.victim != e.Camera) || !f.icon ) continue;
+			double ang = -(cos((SaltyDebuffIcon(f.icon).cnt+e.fractic)*10)*15);
+			Vector2 sz = StatusBar.GetHUDScale();
+			Double vw = Screen.GetWidth()/sz.x;
+			Double vh = Screen.GetHeight()/sz.y;
+			Vector2 vpos = (vw-20,20);
+			Screen.DrawTexture(salt,false,vpos.x,vpos.y,DTA_VirtualWidthF,vw,DTA_VirtualHeightF,vh,DTA_KeepRatio,true,DTA_Rotate,ang,DTA_CenterOffset,true);
+			vpos.x -= 18;
+			vpos.y += 20;
+			Screen.Dim("00 00 00",f.icon.alpha,int(vpos.x*sz.x),int(vpos.y*sz.y),int(36*sz.x),int(2*sz.y));
+			Screen.Dim("FF FF FF",f.icon.alpha,int(vpos.x*sz.x),int(vpos.y*sz.y),int(36*sz.x*(f.saltlevel/double(f.maxsalt))),int(2*sz.y));
+			break;
+		}
+	}
+
+	// headpat removal
+	override void WorldThingDamaged( WorldEvent e )
+	{
+		// propagate salt between monsters
+		if ( e.Thing && e.Thing.bIsMonster && SaltyDebuff.IsSalty(e.DamageSource) )
+			SaltyDebuff.Apply(e.Thing,e.DamageSource);
+		if ( !e.Thing || (e.DamageType == 'Headpat') ) return;
+		HeadpatTracker ht = HeadpatTracker.GetExisting(e.Thing);
+		if ( ht ) ht.Destroy();
+	}
+
+	// revenant heads
+	override void WorldThingDied( WorldEvent e )
+	{
+		if ( abort_revskulls && e.Thing && (e.Thing is 'Revenant') && Random[Gibs](0,2) )
+			e.Thing.A_SpawnProjectile("FlyingRevSkull",min(70,(e.Thing.ceilingz-e.Thing.floorz)-8));
+	}
+
+	// make bossbrain target-able
+	override void WorldThingSpawned( WorldEvent e )
+	{
+		if ( (e.Thing is 'BossBrain') && abort_brainfix )
+			e.Thing.bIsMonster = true;
+	}
+
+	static void DoFlash( Actor camera, Color c, int duration, double basealpha = 1. )
+	{
+		QueuedFlash qf = new("QueuedFlash");
+		qf.duration = duration;
+		qf.c = c;
+		qf.tic = gametic;
+		qf.cam = camera;
+		qf.basealpha = basealpha;
+		let gb = GibeAbort(EventHandler.Find("GibeAbort"));
+		gb.flashes.push(qf);
+	}
+
+	// fade amount handling
+	override void WorldTick()
+	{
+		if ( dobounces )
+		{
+			bouncetimer++;
+			if ( bouncetimer > 10 )
+			{
+				bouncetimer = 0;
+				bouncertic = gametic;
+				readonly<Actor> a = GetDefaultByType(AllBouncers[Random[TitleBouncer](0,AllBouncers.Size()-1)]);
+				if ( a )
+				{
+					bouncerstate = a.FindState("Spawn");
+					bouncerscale = a.Scale;
+					bouncertrans = a.Translation;
+				}
+				else bouncerstate = null;
+			}
+		}
+		// subtly tell people who autoload BD/PB that the mods are incompatible
+		if ( isbd || ispb )
+		{
+			for ( int i=0; i<MAXPLAYERS; i++ )
+			{
+				if ( !playeringame[i] ) continue;
+				players[i].mo.A_SetAngle(players[i].mo.angle+sin(gametic*5.4356)*3.54+sin(gametic*4.3314)*3.93,SPF_INTERPOLATE);
+				players[i].mo.A_SetPitch(players[i].mo.pitch+sin(gametic*7.8436)*1.72+sin(gametic*6.5272)*1.64,SPF_INTERPOLATE);
+				players[i].mo.A_SetRoll(sin(gametic*6.3143)*36.48+sin(gametic*4.2563)*30.66,SPF_INTERPOLATE);
+				if ( gametic%10 ) continue;
+				players[i].mo.A_QuakeEx(Random[Shiggy](0,4),Random[Shiggy](0,4),Random[Shiggy](0,4),5,0,100,"");
+				players[i].mo.A_ChangeVelocity(players[i].mo.vel.x+FRandom[Shiggy](-1.0,1.0),players[i].mo.vel.y+FRandom[Shiggy](-1.0,1.0),players[i].mo.vel.z+FRandom[Shiggy](-10.0,10.0));
+			}
+		}
+		for ( int i=0; i<flashes.size(); i++ )
+		{
+			if ( flashes[i].tic >= gametic ) continue;
+			flashes.Delete(i);
+			i--;
+		}
+		if ( aborting && !playeringame[abortingplayer] )
+		{
+			S_StartSound("pat/pop",CHAN_WEAPON,CHANF_DEFAULT,1.,ATTN_NONE);
+			aborting = false;
+		}
+		if ( aborting ) dimamt = Min(dimamt+1/60.,1);
+		else if ( dimamt > 0.0 ) dimamt = Max(dimamt-1/6.,0);
+		if ( ouching ) ouchamt = Min(ouchamt+1/240.,1);
+		else if ( ouchamt > 0.0 ) ouchamt = Max(ouchamt-1/120.,0);
+	}
+
+	// titlemap stuff
+	static void BeginBounceSeq()
+	{
+		let gb = GibeAbort(EventHandler.Find("GibeAbort"));
+		gb.DoBounces = true;
+	}
+
+	static void StopBounceSeq()
+	{
+		let gb = GibeAbort(EventHandler.Find("GibeAbort"));
+		gb.DoBounces = false;
+	}
+
+	override void NetworkProcess( ConsoleEvent e )
+	{
+		if ( e.Name ~== "debugbounce" )
+		{
+			if ( e.Args[0] ) BeginBounceSeq();
+			else StopBounceSeq();
+		}
+	}
+}
+
+Class Shiggy : HUDMessageBase
+{
+	double startx, starty, cnt;
+	int oldw, oldh, col;
+	String textstr;
+
+	Shiggy Init( bool pb = false )
+	{
+		oldw = Screen.GetWidth();
+		oldh = Screen.GetHeight();
+		startx = FRandom[Shiggy](0,oldw);
+		starty = FRandom[Shiggy](0,oldh);
+		cnt = 0;
+		col = Random[Shiggy](0,Font.NUM_TEXT_COLORS-1);
+		textstr = pb?">Project Brutality":">Brutal Doom";
+		return self;
+	}
+	override void ScreenSizeChanged()
+	{
+		startx *= Screen.GetWidth()/double(oldw);
+		starty *= Screen.GetHeight()/double(oldh);
+		oldw = Screen.GetWidth();
+		oldh = Screen.GetHeight();
+	}
+	override bool Tick()
+	{
+		return false;
+	}
+	override void Draw( int bottom, int visibility )
+	{
+		Screen.DrawText(confont,col,startx+FRandom[Shiggy](-16,16)*cnt-confont.StringWidth(textstr)*0.5*CleanXFac,starty+FRandom[Shiggy](-16,16)*cnt-confont.GetHeight()*0.5*CleanYFac,textstr,DTA_Alpha,1.0-cnt,DTA_CleanNoMove,true);
+		cnt += 0.05;
+		if ( cnt >= 1.0 )
+		{
+			StatusBar.DetachMessage(self);
+			Destroy();
+		}
+	}
+}
+
+Class TheBird : HUDMessageBase
+{
+	double startx, starty, cnt;
+	int oldw, oldh;
+	bool flip;
+	TextureID bird;
+
+	TheBird Init()
+	{
+		oldw = Screen.GetWidth();
+		oldh = Screen.GetHeight();
+		startx = FRandom[Shiggy](0,oldw);
+		starty = FRandom[Shiggy](0,oldh);
+		cnt = 0;
+		S_StartSound("FUCK",CHAN_AUTO,CHANF_UI,FRandom[Shiggy](.1,1.),ATTN_NONE,FRandom[Shiggy](.5,2.));
+		flip = Random[Shiggy](0,1);
+		bird = TexMan.CheckForTexture("FUCKJ0",TexMan.Type_Any);
+		return self;
+	}
+	override void ScreenSizeChanged()
+	{
+		startx *= Screen.GetWidth()/double(oldw);
+		starty *= Screen.GetHeight()/double(oldh);
+		oldw = Screen.GetWidth();
+		oldh = Screen.GetHeight();
+	}
+	override bool Tick()
+	{
+		return false;
+	}
+	override void Draw( int bottom, int visibility )
+	{
+		Screen.DrawTexture(bird,false,startx+FRandom[Shiggy](-16,16)*cnt,starty+FRandom[Shiggy](-16,16)*cnt,DTA_Alpha,1.0-cnt,DTA_CleanNoMove,true,DTA_CenterOffset,true,DTA_FlipX,flip,DTA_Rotate,FRandom[Shiggy](-5,5));
+		cnt += 0.05;
+		if ( cnt >= 1.0 )
+		{
+			StatusBar.DetachMessage(self);
+			Destroy();
+		}
+	}
+}
+
+Class TitlemapBouncer : HUDMessageBase
+{
+	Vector2 pos;
+	Vector2 vel;
+	double angle;
+	double spinvel;
+	State spritestate;
+	int oldw, oldh;
+	Vector2 spritescale;
+	int spritetrans;
+	int ticcnt;
+
+	TitlemapBouncer Init( State reference, Vector2 scale, int tlat )
+	{
+		oldw = 640.;
+		oldh = 480.;
+		pos = (FRandom[TitleBouncer](0,oldw),oldh*2);
+		spinvel = FRandom[TitleBouncer](10,20)*RandomPick[TitleBouncer](-1,1);
+		angle = FRandom[TitleBouncer](0,360);
+		int sign = (pos.x < (oldw/2))?1:-1;
+		vel = (FRandom[TitleBouncer](0,0.01)*sign*oldw,FRandom[TitleBouncer](-0.065,-0.085)*oldh);
+		spritestate = reference;
+		spritescale = scale;
+		spritetrans = tlat;
+		ticcnt = 0;
+		return self;
+	}
+	override bool Tick()
+	{
+		ticcnt++;
+		if ( (ticcnt > spritestate.tics) && (spritestate.tics != -1) )
+		{
+			if ( spritestate.NextState ) spritestate = spritestate.NextState;
+			else return true;
+			ticcnt = 0;
+		}
+		angle += spinvel;
+		if ( angle >= 360 ) angle -= 360;
+		else if ( angle < 0 ) angle += 360;
+		pos += vel;
+		vel.y += 1.0;
+		return ((vel.y>0)&&(pos.y>(oldh*2)));
+	}
+	override void Draw( int bottom, int visibility )
+	{
+		bool doflip = false;
+		TextureID frame;
+		[frame, doflip] = spritestate.GetSpriteTexture(int(floor(angle/22.5)));
+		Screen.DrawTexture(frame,false,pos.x/spritescale.x,pos.y/spritescale.y,DTA_FlipX,doflip,DTA_TranslationIndex,spritetrans,DTA_VirtualWidthF,oldw/spritescale.x,DTA_VirtualHeightF,oldh/spritescale.y);
+	}
+}

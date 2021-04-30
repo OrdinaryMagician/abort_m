@@ -1,0 +1,13 @@
+texture SPEEDLW1
+	random
+	pic SPEEDLW1 tics 2
+	pic SPEEDLW2 tics 2
+	pic SPEEDLW3 tics 2
+	pic SPEEDLW4 tics 2
+
+texture SPEEDLB1
+	random
+	pic SPEEDLB1 tics 2
+	pic SPEEDLB2 tics 2
+	pic SPEEDLB3 tics 2
+	pic SPEEDLB4 tics 2

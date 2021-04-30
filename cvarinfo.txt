@@ -1,0 +1,7 @@
+server bool abort_canuse = true;
+nosave bool abort_mufflegsg = false;
+nosave bool abort_shaders = true;
+server bool abort_brainfix = true;
+server bool abort_friendliesdropoff = true;
+server bool abort_revskulls = true;
+nosave float abort_bigvol = 1.0;

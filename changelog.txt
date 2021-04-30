@@ -1,0 +1,342 @@
+Public Beta 1 - April 1st 2018 2:55
+
+- First release.
+
+Public Beta 1 Hotfix 1 - April 1st 2018 14:55
+
+- Abort button now crashes GZDoom itself with Cowboy.
+
+Public Beta 1 Hotfix 2 - April 1st 2018 16:23
+
+- Cowboy respects player's desired fov.
+
+Public Beta 1 Hotfix 3 - April 1st 2018 18:23
+
+- Pellets alert monsters on ricochet.
+- Pellets also now have decals, this was a rather obvious missing detail.
+- Peas have a bit more randomness added to their bounce.
+
+Public Beta 1 Hotfix 4 - April 1st 2018 21:23
+
+- Revenant skulls should hopefully no longer scream forever.
+- Reduced pellet ammo across the board and increased pea max ammo.
+- Rebalanced pea damages, they were too high.
+- Increased damage of Gunshotgun, it wasn't OP enough.
+- Headpats no longer kill friendly monsters (this includes your astolfos or
+  other player's astolfos in coop), but rather serve as a heal.
+- Removed various redundant instances of invoker pointer usage.
+- Headpats can now be used on any shootable actor including other players. Yes,
+  you can now headpat barrels.
+- Headpats, Astolfo and Finger now work in multiplayer correctly (including DM).
+
+Public Beta 1 Hotfix 5 - April 1st 2018 22:00
+
+- Hopefully the last hotfix.
+- Accounts for player respawns in DM.
+- Remove some leftover debug messages.
+
+Public Beta 1 Hotfix 6 - April 1st 2018 22:26
+
+- Please for the love of god let this be the last.
+- Moved the abort button to slot 1 and gave it the LOWEST possible priority
+  to prevent accidental usage.
+- Added a cvar to block abort button usage (abort_canuse, set to true by default).
+
+Public Beta 1 Hotfix 7 - April 1st 2018 23:12
+
+- Disabled FOV visual effect for Cowboy. Turns out SetFOV isn't per-player
+  (gonna bug Nash about this one for sure).
+- Made Big Enough and Whoosh play with zero attenuation when the local player
+  is viewing whoever is emitting these, this fixes jumpy sound in MP due to
+  lag.
+- abort_canuse now gets saved to ini.
+
+Public Beta 1 Hotfix 8 - April 1st 2018 23:24
+
+- Whoosh volume adjustment was broken by the previous hotfix.
+
+Public Beta 1 Hotfix 9 - April 1st 2018 23:59
+
+- Fixes some debris not sticking to moving sectors.
+- Ouch face now protects against all damage while being used. This is what I
+  originally intended but forgot to add.
+- Fix for ouch face missing overlays after a map transition.
+
+Public Beta 1 Astolfofix - April 2nd 2018 12:05
+
+- Astolfo AI is restored to normal outside of deathmatch.
+
+Public Beta 2 - April 9th 2018 21:57
+
+- Headpats are now an alt-fire of finger poke.
+- Headpat level decreases with time.
+- Made headpat requirements relative to enemy health.
+- Added option to reduce loudness of Gunshotgun (clientside).
+- Abort button now only crashes the using player, rather than everyone.
+- Abort button also makes user invulnerable like Ouch Face while being used.
+- Abort button returns to slot 8.
+- Abort button activation has to be confirmed with a second press of fire, just
+  an additional measure to avoid accidental presses.
+- Alternate skin for berserk: NEDM.
+- Silent berserk skin, for those who aren't big enough.
+- Fixed Astolfo counters in MP.
+- Added quick kick to all weapons (uses reload button).
+- Guns from gunshotgun now rip through enemies when they go fast enough.
+- The Revenant head permanent screaming bug should be gone now (hopefully).
+  If it isn't, then I guess it can be a feature?
+- Option to disable berserk shaders, for those with slow hardware. The
+  alternative doesn't look as good, but at least doesn't destroy the framerate.
+- New chainsaw replacement: Floor Tile.
+- Added Tim Allen face as alternate spawn for BFG9000.
+- Added altfires to Pea Shooter, Big P and Astolfo.
+- Fixed hostile summoned Astolfo crashing.
+- Tweaked Astolfo obituaries.
+- Removed one last leftover debug message in headpats.
+- Berserk music now fades out when drained, as it should.
+- Pain behavior corrected for Astolfo.
+- All weapons now use a more accurate spread method.
+- Projectiles shot from all weapons now inherit shooter's velocity.
+- Headpats now drop enemy items and trigger boss death specials.
+
+Public Beta 2 Hotfix 1 - April 9th 2018 23:37
+
+- Tim Allen summon rebalanced.
+- Tim Allen summon has gained an extra attack for aerial enemies.
+
+Public Beta 2 Hotfix 2 - April 12th 2018 19:44
+
+- Fixed a rare crash caused by calls to SpawnMissile on Tim Allen somehow
+  failing to return an actor.
+
+Public Beta 2 Hotfix 3 - April 13th 2018 00:23
+
+- Celebrating the release of GZDoom 3.3.2 by finally allowing finger poke to
+  activate switches.
+
+Public Beta 2 Agitatefix - April 17th 2018 20:27
+
+- Revenant heads can now be kicked by pressing use.
+- Fixed a lot of badly written bounce behavior.
+
+Public Beta 2 FOOTBALLfix - April 17th 2018 21:49
+
+- I figured making the rev heads also get flung around if you kick them would
+  look more fun, so there you go (also works for other weapons, but kick gives
+  best results).
+
+Version 0.99 - April 30th 2018 21:18
+
+- Because 1.0 is going to take longer than I thought, here's something while
+  you wait.
+- HEYYEYAAEYAAAEYAEYAA, FUCK BEES and EXTREME RICE berserk skins added.
+- Berserk now also amplifies speed and jump height.
+- Altfires for Pellet Box, Gunshotgun, Finger.
+- A surprise for BD users.
+- Trimmed down and added something extra to the TITLEMAP, this has almost
+  halved the mod's filesize.
+
+Version 0.99 Hotfix 1 - April 30th 2018 22:11
+
+- Kicking and throwing now possible when pellet box is empty.
+- Finger altfire fails if there isn't enough ammo.
+
+Version 0.99 Hotfix 2 - May 2nd 2018 11:28
+
+- Attempt a massive gross hack to fix all the bouncers getting stuck. It seems
+  to work?
+
+Version 1.0 - May 5th 2018 13:18
+
+- Custom Status Bar.
+- Custom Fullscreen HUD.
+- Some rebalancing and minor tweaks.
+- Finally fixed floor tiles having zero ammo when dropped by enemies.
+- Particle effects for Gunshotgun alt.
+
+Version 1.0 Hotfix 1 - May 6th 2018 01:01
+
+- Corrected some sprite scales.
+- Force use of non-shader Berserk overlay when using software renderers.
+
+Version 1.0 Hotfix 2 - May 6th 2018 21:23
+
+- Made Boss Brain into a monster so he's targettable by Astolfo and Tim Allen.
+  (toggleable in options)
+- Reduced the size of Tim Allen to match the player, so he doesn't get stuck
+  when summoned.
+- Added option to allow Astolfo and Tim Allen to drop off tall ledges.
+- Implemented Random berserk skins, and tweaked how skin handling works.
+
+Version 1.0 Hotfix 3 - May 8th 2018 18:22
+
+- Fixed crash for people not on devbuilds due to checking for vid_rendermode
+  in the berserk render overlay. Fall back to using vid_renderer to check for
+  hardware rendering if the CVar isn't found.
+
+Version 1.0 Hotfix 4 - June 4th 2018 14:14
+
+- Removed the ridiculously long cvar. (>playing Brutal Doom)
+
+Version 1.1 - September 23rd 2018 20:23
+
+- No more checking the renderer for the berserk overlay,
+  GZDoom has screen shaders in software now.
+- Major buff to kicking.
+- Many bouncing projectiles now also hurt you, so watch out.
+- Alternate Shotgun spawn: Foamgun.
+- Alternate SSG spawn: Spam Cannon.
+- Alternate Chaingun spawn: A Salt Rifle.
+- Alternate Rocket Launcher spawn: Thonk Grenades.
+- Alternate Plasma Rifle spawn: Ravegun.
+- Revenant skulls are now toggleable, for those who are tired of their
+  unfixable glitchiness.
+- Migrated to CheckReplacement.
+- Big P has visual recoil (this was missing before).
+- Magic Trick now has a limited range, for balance reasons.
+  (Range is still unlimited when in berserk)
+- Gunshotgun primary fire has been buffed.
+
+Version 1.1 Hotfix 1 - September 23rd 2018 20:58
+
+- Fixed Rave Gun not being in spawn lists.
+
+Version 1.1 Hotfix 2 - September 27th 2018 23:00
+
+- Fix "Attempt to instantiate abstract class ThinkerIterator" error.
+
+Version 1.1 Hotfix 3 - December 3rd 2018 11:27
+
+- Fix for recent GZDoom devbuilds.
+
+Version 1.1.1 - December 17th 2018 14:48
+
+- Assorted item replacers (health, armor, other powerups).
+  - Health bonus -> Piece of Candy.
+  - Armor bonus -> Block of Tofu.
+  - Stimpack -> Banana.
+  - Medikit -> Pickle Jar.
+  - Soulsphere -> Saucesphere.
+  - Green Armor -> Comfy pants.
+  - Blue Armor -> Very comfy pants.
+  - Megasphere -> Shimapansphere.
+  - Blursphere -> Blurrysphere.
+  - Lite-Amp -> Brightsphere.
+- Headpat compatibility with Ralsei companion mod.
+- You can now punch nazis. They don't deserve headpats.
+- Miscellaneous rebalancing. Weapons affected: Pea shooter, Big P, Assblaster,
+  Ouch Face.
+- Pellets now are FastProjectiles, allowing for more precise movement.
+- Polishing and fixing in preparation for ouch_m 3.
+- Additional Berserk skins:
+  * Erectin' A River.
+  * Fukkireta.
+  * Pipo.
+  * Duane.
+
+Version 1.1.2 - June 25th 2020 13:10
+
+- Copyright cleanup
+  - Big Enough removed
+  - You Can Do It removed
+  - Home Improvement Theme removed
+- Reformatted fonts
+- Updated mk_math library code
+- Partially updated for 4.3 compatibility (need to migrate to A_StartSound)
+- Partial custom player code work (this damn copyright nonsense caught me in
+  the middle of it)
+
+Version 1.1.3 - Unreleased
+
+- crimes_m is cancelled, but at least I can leave this in a stable state.
+- Additional copyright cleanup.
+  - Removed all other berserk forms, left only EXTREME RICE.
+- Custom player character: John A. Bortson III, a.k.a. "Abortguy".
+- Pellet box primary fire can now be held to throw the pellets at an
+  appropriate time.
+- Floor Tile autofires with berserk.
+- Spam Cannon still plays reload sequence when out of ammo. Dunno why I changed
+  that.
+- For balance, berserk in deathmatch has a much shorter duration and doesn't
+  prevent death.
+- Astolfos and Tims will teleport to their master/summoner if no targets are
+  nearby after a while and they're too far.
+
+Version 1.1.4 - April 30th 2021
+
+- Sanitized re-release, all previous versions are no longer available, git repo
+  has been recreated from scratch.
+- Even more cleanup of copyrighted stuff.
+  - Switched out the Astolfo bean music for some other meme song, thankfully
+    one that is under Creative Commons.
+  - Switched out the title music for a public domain rendition.
+- Migration to GZDoom 4.5 compatibility.
+  - Use of A_StartSound where needed.
+  - Use of direct pitch shifting for some sounds.
+  - Clean up other deprecated code.
+
+Version 1.1.5 - What would come next
+
+- Custom mugshot and player sprites for Abortguy, work was left unfinished.
+- Cosmetic actions for non-throwing weapons.
+  - Poke: Wall climb.
+  - Tile: Polish the tile.
+  - Finger: Finger swap.
+  - Thonk: On-demand hmm.
+  - Astolfo: Headpat the bean.
+- Additional animations for Astolfo so people stop misinterpreting everything.
+
+Version 1.2 - Also was planned
+
+- Absurdsphere (rare berserk replacement).
+  * Absurd fire for Poke: Poke thrower.
+  * Absurd fire for Pea Shooter: Peasplosion.
+  * Absurd fire for Pellet Box: Pellet Boost.
+  * Absurd fire for Gunshotgun: Full Gunforce.
+  * Absurd fire for Big P: P Storage.
+  * Absurd fire for Finger: Liftoff.
+  * Absurd fire for Astolfo: Big Succ.
+  * Absurd fire for Ouch Face: Ouch Buddy.
+  * Absurd fire for Tim Allen Face: Timogrifier.
+  * Absurd fire for Abort Button: Nut.
+  * Absurd fire for Tile: Tile Lift.
+  * Absurd fire for Foamgun: Oh God Why.
+  * Absurd fire for Spam Cannon: The Other Spam.
+  * Absurd fire for A Salt Rifle: Summon Salt Elemental.
+  * Absurd fire for Ravegun: SWEET RAVE PARTY.
+  * Absurd fire for Thonk Grenades: Deep Thonk.
+
+Version 1.2.1 - Yeah, this was going to happen
+
+- Berserk absurd fires:
+  * Poke: Kanchō.
+  * Pea Shooter: Pea Shooter Shooter.
+  * Pellet Box: Pellet Plant.
+  * Gunshotgun: Fuller Gunforcest.
+  * Big P: The Real Big P.
+  * Finger: What.
+  * Astolfo: Summon Astolfo.
+  * Ouch Face: Ouch Time.
+  * Tim Allen Face: Timpocalypse.
+  * Abort Button: Big Nut.
+  * Tile: Tile Crush.
+  * Foamgun: Foam Party.
+  * Spam Cannon: All Spams Combined.
+  * A Salt Rifle: Salt Buddies.
+  * Ravegun: PARTY HARD.
+  * Thonk Grenades: The Deepest Thonk.
+
+Version 1.3 - Big F for this mod
+
+- Additional batch of weapons:
+  * Alternate Chainsaw spawn: Status Bar.
+  * Alternate Pistol spawn: Peestol.
+  * Alternate Shotgun spawn: Shortgun.
+  * Alternate Super Shotgun spawn: Southern Wind Cannon.
+  * Alternate Chaingun spawn: Gunchain.
+  * Alternate Rocket Launcher spawn: Creative Urns.
+  * Alternate Plasma Rifle spawn: Losser.
+  * Alternate BFG9000 spawn: Smelly Sock.
+
+Version 1.4 - It's unfortunate what happened
+
+- Community-made additional batch(es) of weapons.

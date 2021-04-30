@@ -1,0 +1,18 @@
+GameInfo
+{
+	AddEventHandlers = "GibeAbort"
+	statusbarclass = "AbortStatusBar"
+	borderflat = "abrdtile"
+	border = 8, 8, "abrd_tl", "abrd_t", "abrd_tr", "abrd_l", "abrd_r", "abrd_bl", "abrd_b", "abrd_br"
+}
+
+map TITLEMAP "abort_m - The Titlemap"
+{
+	music = "D_DVORAK"
+	sky1 = "TITLESKY"
+}
+
+DoomEdNums
+{
+	6400 = TitleGreatOuchFaceInTheSky
+}

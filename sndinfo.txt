@@ -1,0 +1,207 @@
+$pitchshiftrange 0
+// extreme rice
+rice/aaaaaaaaa RICEMUS
+rice/themusic RICEIDLE
+
+// base
+kick/miss1 KICKMIS1
+kick/miss2 KICKMIS2
+$random kick/miss { kick/miss1 kick/miss2 }
+kick/hit KICKHIT1
+kick/wall KICKWALL
+
+// finger poke / headpat
+poke/whoosh WHOOSH
+$limit poke/whoosh 32
+pat/pop CORK
+
+// floor tile
+tile/miss HAMMIS2
+tile/wall HAMWAL1
+tile/hit HMHIT1A
+tile/fly HAMFLY1
+
+// pea shooter
+pea/shoot DSPEASH
+$limit pea/shoot 32
+pea/empty DSPEASHN
+pea/eat EATSOFT
+
+// pellets
+pellet/grab GRABPLT
+pellet/throwbox WHOOOOSH
+pellet/hit RICOCHET
+pellet/meat CHUNKHIT
+pellet/explode BEXPLOD
+$limit pellet/hit 32
+$limit pellet/meat 32
+$limit pellet/explode 32
+
+// foamgun
+foam/fire FOAMFIRE
+foam/alt FOAMALT
+foam/bfire FOAMBFIR
+foam/balt FOAMBALT
+foam/hit FOAMHIT
+$limit foam/hit 64
+$volume foam/hit 0.1
+
+// gunshotgun
+guns/mrbigshot BIGSHOT
+guns/shred SHRED
+guns/bounce1 GUNHIT1
+guns/bounce2 GUNHIT2
+guns/bounce3 GUNHIT3
+$random guns/bounce { guns/bounce1 guns/bounce2 guns/bounce3 }
+guns/cbounce1 HIT1
+guns/cbounce2 HIT2
+guns/cbounce3 HIT3
+$random guns/cbounce { guns/cbounce1 guns/cbounce2 guns/cbounce3 }
+
+// spam cannon
+spam/click SPAMCLK
+spam/fire SPAMFIRE
+spam/reload SPAMRLD
+
+// a salt rifle
+salt/fire SALTFIRE
+salt/alt SALTALT
+salt/bfire SALTBFIR
+salt/balt SALTBALT
+salt/shell SHELL2
+
+// thonk grenades
+thonk/hmm HMM
+thonk/mmh MMH
+thonk/hmm2 HMM
+thonk/hmm3 HMM
+$limit thonk/hmm2 32
+$limit thonk/hmm3 32
+
+// haunted astolfo bean plushie
+succ/squeak SQUEAK
+succ/music BEANPLSH
+$limit succ/music 32
+succ/open OPNBEPIS
+succ/bepis DRINK
+succ/bepisend DRINKEND
+
+// ravegun
+rave/fire RAVEFIRE
+rave/hit RAVEHIT
+$limit rave/hit 64
+rave/alt RAVEALT
+rave/althit RAVEAHIT
+$limit rave/althit 64
+rave/laser RAVELOOP
+$limit rave/laser 64
+rave/charge RAVECHRG
+
+// ouch
+ouch/pain DSPLPAIN
+ouch/fire DSPLDETH
+ouch/scream DSPDIEHI
+ouch/dspdiehi DSPDIEHI
+ouch/itbegins ITBEGINS
+ouch/burnit BURNIT
+$limit ouch/dspdiehi 64
+
+// tim allen
+tim/grunt TIMGRUNT
+tim/summon TIMBEG
+tim/drill DURIRU
+
+// advanced tim allen grunt system
+tim/grunt1 TGRUNT1
+tim/grunt2 TGRUNT2
+tim/grunt3 TGRUNT3
+tim/grunt4 TGRUNT4
+tim/grunt5 TGRUNT5
+tim/grunt6 TGRUNT6
+tim/grunt7 TGRUNT7
+tim/grunt8 TGRUNT8
+tim/grunt9 TGRUNT9
+tim/grunt10 TGRUNT10
+tim/grunt11 TGRUNT11
+tim/grunt12 TGRUNT12
+tim/grunt13 TGRUNT13
+tim/grunt14 TGRUNT14
+tim/grunt15 TGRUNT15
+tim/grunt16 TGRUNT16
+tim/grunt17 TGRUNT17
+tim/grunt18 TGRUNT18
+tim/grunt19 TGRUNT19
+tim/grunt20 TGRUNT20
+tim/grunt21 TGRUNT21
+tim/grunt22 TGRUNT22
+tim/grunt23 TGRUNT23
+$random tim/see { tim/grunt3 tim/grunt10 tim/grunt16 tim/grunt18 tim/grunt19 tim/grunt23 }
+$random tim/active { tim/grunt1 tim/grunt6 tim/grunt7 tim/grunt8 tim/grunt9 tim/grunt12 }
+$random tim/chase { tim/grunt2 tim/grunt13 tim/grunt14 tim/grunt17 }
+$random tim/pain { tim/grunt4 tim/grunt5 tim/grunt11 }
+$random tim/attack { tim/grunt21 tim/grunt22 }
+$alias tim/death tim/grunt20
+$alias tim/masterdie tim/grunt15
+
+// abort button
+nut/abort BUZZER
+
+// creepy bone
+skeleton/loopscream DSSKESTL
+
+// titlemap stuff
+blast/splode1 DSPIPEX1
+blast/splode2 DSPIPEX2
+blast/splode3 DSPIPEX3
+blast/splode4 DSPIPEX4
+$random blast/splode { blast/splode1 blast/splode2 blast/splode3 blast/splode4 }
+$limit blast/splode 64
+// recycled from an old jokewad I'm not proud of
+evan/pain EVPAIN
+evan/die EVDIE
+
+// derp
+$limit FUCK 64
+
+// abortguy sounds
+// pain/death
+abortguy/pain11 bortpa11
+abortguy/pain12 bortpa12
+abortguy/pain21 bortpa21
+abortguy/pain22 bortpa22
+abortguy/pain31 bortpa31
+abortguy/pain32 bortpa32
+abortguy/pain41 bortpa41
+abortguy/pain42 bortpa42
+$random abortguy/pain1 { abortguy/pain11 abortguy/pain12 }
+$random abortguy/pain2 { abortguy/pain21 abortguy/pain22 }
+$random abortguy/pain3 { abortguy/pain31 abortguy/pain32 }
+$random abortguy/pain4 { abortguy/pain41 abortguy/pain42 }
+// grunting
+abortguy/grunt1 bortgrn1
+abortguy/grunt2 bortgrn2
+abortguy/grunt3 bortgrn3
+$random abortguy/grunt { abortguy/grunt1 abortguy/grunt2 abortguy/grunt3 }
+abortguy/gruntrev bortgrnr
+// grumble (unused for now)
+abortguy/grumble bortgrmb
+// attack (used by some weapons)
+abortguy/attack1 bortatk1
+abortguy/attack2 bortatk2
+abortguy/attack3 bortatk3
+$random abortguy/attack { abortguy/attack1 abortguy/attack2 abortguy/attack3 }
+// death thumps
+abortguy/death1 bortdth1
+abortguy/death2 bortdth2
+
+$playeralias player male *death abortguy/pain3
+$playeralias player male *xdeath abortguy/pain4
+$playeralias player male *pain100 abortguy/pain1
+$playeralias player male *pain75 abortguy/pain1
+$playeralias player male *pain50 abortguy/pain2
+$playeralias player male *pain25 abortguy/pain2
+$playersound player male *gibbed DSSLOP
+$playeralias player male *grunt abortguy/grunt
+$playeralias player male *usefail abortguy/grunt
+$playeralias player male *jump abortguy/grunt
+$playeralias player male *land DSEMPTY
