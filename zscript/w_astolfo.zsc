@@ -217,7 +217,7 @@ Class Astolfo : Actor
 	override void Tick()
 	{
 		Super.Tick();
-		bDROPOFF = abort_friendliestdropoff;
+		bDROPOFF = abort_friendliesdropoff;
 		if ( InStateSequence(CurState,ResolveState("Death")) ) return;
 		if ( master && master.CountInv("AAAAAAAAA") ) speed = 15;
 		else speed = 5;

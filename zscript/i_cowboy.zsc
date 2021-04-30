@@ -35,7 +35,6 @@ Class Cowboy : PowerupGiver
 		if ( !Owner ) return true;
 		bool usedup = false;
 		let power = Powerup(Spawn("AAAAAAAAA"));
-		AAAAAAAAA(power).skin = lastskin;
 		power.bAlwaysPickup |= bAlwaysPickup;
 		power.bAdditiveTime |= bAdditiveTime;
 		power.bNoTeleportFreeze |= bNoTeleportFreeze;
