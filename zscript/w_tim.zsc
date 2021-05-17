@@ -385,7 +385,7 @@ Class TimSummoner : Actor
 	{
 		double j, k, l, m;
 		Vector2 va, vb, p;
-		for ( j=0; j<5; j++ )
+		for ( j=0; j<5; j+=1 )
 		{
 			va = (cos(j*72),sin(j*72))*80;
 			vb = (cos((j+2)*72),sin((j+2)*72))*80;

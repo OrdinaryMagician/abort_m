@@ -65,7 +65,7 @@ Class ThonkShockwave : Actor
 			return;
 		}
 		if ( !t ) t = ThinkerIterator.Create("Actor");
-		lifespan--;
+		lifespan -= 1;
 		alpha -= 1./ReactionTime;
 		shocksize = 13*(ReactionTime-lifespan)+3.5/(lifespan/ReactionTime+0.05);
 		shocksize *= 0.25;
