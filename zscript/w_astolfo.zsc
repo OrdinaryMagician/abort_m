@@ -226,7 +226,7 @@ Class Astolfo : Actor
 			SetStateLabel("Death");
 			return;
 		}
-		floorclip += 1;
+		floorclip++;
 		timer++;
 		if ( timer > 6 )
 		{
